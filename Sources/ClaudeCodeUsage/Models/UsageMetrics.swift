@@ -31,7 +31,7 @@ enum ColorTier: Sendable {
         switch self {
         // case .red:    Color(red: 252 / 255, green: 165 / 255, blue: 165 / 255)
         case .red:    Color(red: 252 / 255, green: 78 / 255, blue: 78 / 255)
-        case .orange: Color(red: 254 / 255, green: 215 / 255, blue: 170 / 255)
+        case .orange: Color(red: 254 / 255, green: 188 / 255, blue: 122 / 255)
         case .blue:   Color(red: 129 / 255, green: 210 / 255, blue: 253 / 255)
         case .purple: Color(red: 196 / 255, green: 181 / 255, blue: 253 / 255)
         case .green:  Color(red: 187 / 255, green: 247 / 255, blue: 208 / 255)

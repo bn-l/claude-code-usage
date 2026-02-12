@@ -5,17 +5,19 @@ import OSLog
 private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "History")
 
 final class HistoryStore: Sendable {
-    private let dbPool: DatabasePool
+    let dbPool: DatabasePool
 
-    init() throws {
+    convenience init() throws {
         let dir = FileManager.default.homeDirectoryForCurrentUser
             .appending(path: ".config/claude-code-usage")
         logger.debug("Creating database directory: path=\(dir.path(), privacy: .public)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try self.init(path: dir.appending(path: "history.db").path())
+    }
 
-        let dbPath = dir.appending(path: "history.db").path()
-        logger.debug("Opening database pool: path=\(dbPath, privacy: .public)")
-        dbPool = try DatabasePool(path: dbPath)
+    init(path: String) throws {
+        logger.debug("Opening database pool: path=\(path, privacy: .public)")
+        dbPool = try DatabasePool(path: path)
 
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
@@ -43,8 +45,15 @@ final class HistoryStore: Sendable {
             try db.create(indexOn: "session_starts", columns: ["timestamp"])
             logger.info("Migration v1 complete: tables and indexes created")
         }
+        migrator.registerMigration("v2") { db in
+            logger.debug("Running migration v2: renaming session_budget_used_pct column")
+            try db.alter(table: "usage_snapshots") { t in
+                t.rename(column: "session_budget_used_pct", to: "weekly_budget_burn_pct")
+            }
+            logger.info("Migration v2 complete: column renamed")
+        }
         try migrator.migrate(dbPool)
-        logger.info("HistoryStore initialized: path=\(dbPath, privacy: .public)")
+        logger.info("HistoryStore initialized: path=\(path, privacy: .public)")
     }
 
     // MARK: - Write
@@ -78,6 +87,27 @@ final class HistoryStore: Sendable {
         logger.info("Session start saved")
     }
 
+    func updateLatestSessionStart(_ s: SessionSnapshot) throws {
+        logger.info("Updating latest session start (weekly re-baseline): weeklyUsagePctAtStart=\(s.weeklyUsagePctAtStart, privacy: .public) weeklyMinsLeftAtStart=\(s.weeklyMinsLeftAtStart, privacy: .public)")
+        try dbPool.write { db in
+            try db.execute(sql: """
+                UPDATE session_starts
+                SET weekly_usage_pct_at_start = ?, weekly_mins_left_at_start = ?, timestamp = ?
+                WHERE id = (SELECT id FROM session_starts ORDER BY timestamp DESC LIMIT 1)
+                """, arguments: [s.weeklyUsagePctAtStart, s.weeklyMinsLeftAtStart, s.timestamp])
+            if db.changesCount == 0 {
+                logger.info("No existing session start to update, inserting new row")
+                try SessionStartRecord(
+                    timestamp: s.timestamp,
+                    weeklyUsagePctAtStart: s.weeklyUsagePctAtStart,
+                    weeklyMinsLeftAtStart: s.weeklyMinsLeftAtStart
+                ).insert(db)
+            } else {
+                logger.info("Latest session start updated successfully")
+            }
+        }
+    }
+
     func latestSessionStart() throws -> SessionSnapshot? {
         logger.debug("Querying latest session start")
         let result = try dbPool.read { db in
@@ -94,6 +124,26 @@ final class HistoryStore: Sendable {
             logger.debug("Latest session start found: weeklyUsagePctAtStart=\(r.weeklyUsagePctAtStart, privacy: .public) weeklyMinsLeftAtStart=\(r.weeklyMinsLeftAtStart, privacy: .public) timestamp=\(r.timestamp, privacy: .public)")
         } else {
             logger.debug("No session start records found")
+        }
+        return result
+    }
+
+    func latestPollState() throws -> (sessionMinsLeft: Double, weeklyMinsLeft: Double, timestamp: Date)? {
+        logger.debug("Querying latest poll state")
+        let result: (sessionMinsLeft: Double, weeklyMinsLeft: Double, timestamp: Date)? = try dbPool.read { db in
+            let row = try Row.fetchOne(db, sql: """
+                SELECT session_mins_left, weekly_mins_left, timestamp
+                FROM usage_snapshots ORDER BY timestamp DESC LIMIT 1
+                """)
+            guard let sMins: Double = row?["session_mins_left"],
+                  let wMins: Double = row?["weekly_mins_left"],
+                  let ts: Date = row?["timestamp"] else { return nil }
+            return (sMins, wMins, ts)
+        }
+        if let r = result {
+            logger.debug("Latest poll state found: sessionMinsLeft=\(r.sessionMinsLeft, privacy: .public) weeklyMinsLeft=\(r.weeklyMinsLeft, privacy: .public) timestamp=\(r.timestamp, privacy: .public)")
+        } else {
+            logger.debug("No poll state records found")
         }
         return result
     }
@@ -156,7 +206,7 @@ final class HistoryStore: Sendable {
         let results = try dbPool.read { db in
             let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
             let rows = try Row.fetchAll(db, sql: """
-                SELECT strftime('%Y-%m-%d', timestamp) AS day, MAX(combined_pct) AS max_pct
+                SELECT strftime('%Y-%m-%d', timestamp, 'localtime') AS day, MAX(combined_pct) AS max_pct
                 FROM usage_snapshots WHERE timestamp >= ?
                 GROUP BY day ORDER BY day
                 """, arguments: [cutoff])
@@ -172,7 +222,7 @@ final class HistoryStore: Sendable {
             let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
             let row = try Row.fetchOne(db, sql: """
                 SELECT
-                    COUNT(CASE WHEN session_budget_used_pct >= 100 THEN 1 END) * 100.0
+                    COUNT(CASE WHEN weekly_budget_burn_pct >= 100 THEN 1 END) * 100.0
                     / MAX(COUNT(*), 1) AS hit_rate
                 FROM usage_snapshots WHERE timestamp >= ?
                 """, arguments: [cutoff])
@@ -187,7 +237,7 @@ final class HistoryStore: Sendable {
         let results = try dbPool.read { db in
             let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
             let rows = try Row.fetchAll(db, sql: """
-                SELECT CAST(strftime('%H', timestamp) AS INTEGER) AS hour,
+                SELECT CAST(strftime('%H', timestamp, 'localtime') AS INTEGER) AS hour,
                        AVG(combined_pct) AS avg_pct
                 FROM usage_snapshots WHERE timestamp >= ?
                 GROUP BY hour ORDER BY avg_pct DESC LIMIT ?
@@ -203,10 +253,10 @@ final class HistoryStore: Sendable {
         let results = try dbPool.read { db in
             let cutoff = Calendar.current.date(byAdding: .day, value: -weeks * 7, to: Date())!
             let rows = try Row.fetchAll(db, sql: """
-                SELECT strftime('%Y-%m-%d', timestamp) AS day,
+                SELECT MAX(strftime('%Y-%m-%d', timestamp, 'localtime')) AS day,
                        MAX(weekly_usage_pct) AS max_pct
                 FROM usage_snapshots WHERE timestamp >= ?
-                GROUP BY strftime('%W', timestamp)
+                GROUP BY strftime('%Y-%W', timestamp, 'localtime')
                 ORDER BY day DESC LIMIT ?
                 """, arguments: [cutoff, weeks])
             return rows.map { DailyStat(date: $0["day"], maxCombinedPct: $0["max_pct"]) }
@@ -221,7 +271,7 @@ final class HistoryStore: Sendable {
             let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: Date())!
             let row = try Row.fetchOne(db, sql: """
                 SELECT CAST(COUNT(*) AS REAL)
-                    / MAX(COUNT(DISTINCT strftime('%Y-%m-%d', timestamp)), 1) AS avg_per_day
+                    / MAX(COUNT(DISTINCT strftime('%Y-%m-%d', timestamp, 'localtime')), 1) AS avg_per_day
                 FROM session_starts WHERE timestamp >= ?
                 """, arguments: [cutoff])
             return (row?["avg_per_day"] ?? 0) as Double
@@ -238,9 +288,9 @@ final class HistoryStore: Sendable {
             // Try weekday-specific average (need >= 2 distinct days for this weekday)
             let wdRow = try Row.fetchOne(db, sql: """
                 SELECT COUNT(*) AS total,
-                       COUNT(DISTINCT strftime('%Y-%m-%d', timestamp)) AS distinct_days
+                       COUNT(DISTINCT strftime('%Y-%m-%d', timestamp, 'localtime')) AS distinct_days
                 FROM session_starts
-                WHERE CAST(strftime('%w', timestamp) AS INTEGER) = ?
+                WHERE CAST(strftime('%w', timestamp, 'localtime') AS INTEGER) = ?
                 """, arguments: [weekday])
             if let total: Int = wdRow?["total"],
                let distinctDays: Int = wdRow?["distinct_days"],
@@ -291,7 +341,7 @@ private struct SnapshotRecord: Codable, FetchableRecord, PersistableRecord {
         case sessionMinsLeft = "session_mins_left"
         case weeklyMinsLeft = "weekly_mins_left"
         case sessionForecastPct = "session_forecast_pct"
-        case weeklyBudgetBurnPct = "session_budget_used_pct"
+        case weeklyBudgetBurnPct = "weekly_budget_burn_pct"
         case combinedPct = "combined_pct"
     }
 }
