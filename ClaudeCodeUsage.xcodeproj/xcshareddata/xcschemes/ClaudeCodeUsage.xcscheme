@@ -21,6 +21,20 @@
                ReferencedContainer = "container:ClaudeCodeUsage.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "0B6FA402B2BA544EC13A0CDC"
+               BuildableName = "ClaudeCodeUsageTests.xctest"
+               BlueprintName = "ClaudeCodeUsageTests"
+               ReferencedContainer = "container:ClaudeCodeUsage.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -39,7 +53,20 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "0B6FA402B2BA544EC13A0CDC"
+               BuildableName = "ClaudeCodeUsageTests.xctest"
+               BlueprintName = "ClaudeCodeUsageTests"
+               ReferencedContainer = "container:ClaudeCodeUsage.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

@@ -29,3 +29,11 @@ clean:
 # Run the app
 run: app
     open build/ClaudeCodeUsage.app
+
+# Run tests
+test:
+    xcodebuild test -project ClaudeCodeUsage.xcodeproj -scheme ClaudeCodeUsage -destination 'platform=macOS,arch=arm64' -quiet
+
+# Clear all data from the database
+clear-db:
+    rm -f ~/.config/claude-code-usage/history.db
