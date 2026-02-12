@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:claude-code-usage}",
+            "name": "Debug ClaudeCodeUsage",
+            "target": "ClaudeCodeUsage",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug ClaudeCodeUsage"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:claude-code-usage}",
+            "name": "Release ClaudeCodeUsage",
+            "target": "ClaudeCodeUsage",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release ClaudeCodeUsage"
+        }
+    ]
+}
