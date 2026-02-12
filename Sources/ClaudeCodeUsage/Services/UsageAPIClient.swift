@@ -30,7 +30,14 @@ enum UsageAPIClient {
             throw URLError(.badServerResponse)
         }
 
-        let result = try JSONDecoder().decode(UsageLimits.self, from: data)
+        let result: UsageLimits
+        do {
+            result = try JSONDecoder().decode(UsageLimits.self, from: data)
+        } catch {
+            let body = String(data: data, encoding: .utf8) ?? "<non-utf8, \(data.count) bytes>"
+            logger.error("JSON decode failed: \(error.localizedDescription, privacy: .public) body=\(body, privacy: .public)")
+            throw error
+        }
         logger.info("API fetch success: fiveHourUtil=\(result.five_hour?.utilization ?? -1, privacy: .public) sevenDayUtil=\(result.seven_day?.utilization ?? -1, privacy: .public) fiveHourResetsAt=\(result.five_hour?.resets_at ?? "nil", privacy: .public) sevenDayResetsAt=\(result.seven_day?.resets_at ?? "nil", privacy: .public) tier=\(result.rate_limit_tier ?? "nil", privacy: .public)")
         return result
     }

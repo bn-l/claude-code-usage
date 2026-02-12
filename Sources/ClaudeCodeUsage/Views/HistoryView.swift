@@ -76,11 +76,32 @@ struct HistoryView: View {
         }
         logger.debug("loadHistory: refreshing history data")
 
-        todayStats = try? store.todayStats()
-        dailyTrend = (try? store.dailyMaxCombined()) ?? []
-        budgetHitRate = (try? store.budgetHitRate()) ?? 0
-        peakHours = (try? store.peakUsageHours()) ?? []
-        avgSessionsPerDay = (try? store.avgSessionsPerDay()) ?? 0
+        do { todayStats = try store.todayStats() }
+        catch { logger.error("loadHistory: todayStats failed: \(error.localizedDescription, privacy: .public)") }
+
+        do { dailyTrend = try store.dailyMaxCombined() }
+        catch {
+            dailyTrend = []
+            logger.error("loadHistory: dailyMaxCombined failed: \(error.localizedDescription, privacy: .public)")
+        }
+
+        do { budgetHitRate = try store.budgetHitRate() }
+        catch {
+            budgetHitRate = 0
+            logger.error("loadHistory: budgetHitRate failed: \(error.localizedDescription, privacy: .public)")
+        }
+
+        do { peakHours = try store.peakUsageHours() }
+        catch {
+            peakHours = []
+            logger.error("loadHistory: peakUsageHours failed: \(error.localizedDescription, privacy: .public)")
+        }
+
+        do { avgSessionsPerDay = try store.avgSessionsPerDay() }
+        catch {
+            avgSessionsPerDay = 0
+            logger.error("loadHistory: avgSessionsPerDay failed: \(error.localizedDescription, privacy: .public)")
+        }
 
         logger.debug("loadHistory complete: todaySessions=\(todayStats?.sessionCount ?? 0, privacy: .public) dailyTrendDays=\(dailyTrend.count, privacy: .public) budgetHitRate=\(budgetHitRate, privacy: .public) peakHoursCount=\(peakHours.count, privacy: .public) avgSessionsPerDay=\(avgSessionsPerDay, privacy: .public)")
     }
