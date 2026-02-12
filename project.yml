@@ -33,10 +33,29 @@ targets:
     dependencies:
       - package: GRDB
 
+  ClaudeCodeUsageTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/ClaudeCodeUsageTests
+    settings:
+      base:
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: ClaudeCodeUsage
+      - package: GRDB
+
 schemes:
   ClaudeCodeUsage:
     build:
       targets:
         ClaudeCodeUsage: all
+        ClaudeCodeUsageTests: [test]
     run:
       executable: ClaudeCodeUsage
+    test:
+      targets:
+        - ClaudeCodeUsageTests
