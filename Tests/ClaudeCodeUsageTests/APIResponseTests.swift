@@ -57,21 +57,34 @@ struct APIResponseTests {
         #expect(limits.rate_limit_tier == "tier_3")
     }
 
-    @Test("Utilization is 0-100 percent scale, not 0-1 fractional")
-    func percentScale() throws {
+    @Test("UsageWindow decodes resets_at as nil when null")
+    func resetsAtNull() throws {
         let json = Data("""
-            {"utilization": 50.0, "resets_at": "2026-01-15T12:00:00Z"}
+            {"utilization": 0.0, "resets_at": null}
             """.utf8)
         let window = try JSONDecoder().decode(UsageWindow.self, from: json)
-        // 50.0 means 50%, verify it's used directly in UsageCalculator
-        let m = UsageCalculator.compute(
-            sessionUsagePct: window.utilization,
-            weeklyUsagePct: 20,
-            sessionMinsLeft: 150, weeklyMinsLeft: 7200,
-            snapshot: SessionSnapshot(weeklyUsagePctAtStart: 20, weeklyMinsLeftAtStart: 7200, timestamp: Date()),
-            sessionsPerDay: 2
-        )
-        // sessionElapsedFrac = 0.5, forecast = 50/0.5 = 100
-        #expect(m.sessionForecastPct == 100)
+        #expect(window.utilization == 0.0)
+        #expect(window.resets_at == nil)
+    }
+
+    @Test("UsageLimits decodes real API response with null resets_at and unknown fields")
+    func realAPIResponseWithNulls() throws {
+        let json = Data("""
+            {
+                "five_hour": {"utilization": 0.0, "resets_at": null},
+                "seven_day": {"utilization": 45.0, "resets_at": "2026-02-13T01:59:59.999835+00:00"},
+                "seven_day_oauth_apps": null,
+                "seven_day_opus": null,
+                "seven_day_sonnet": {"utilization": 0.0, "resets_at": null},
+                "seven_day_cowork": null,
+                "iguana_necktie": null,
+                "extra_usage": {"is_enabled": false, "monthly_limit": null, "used_credits": null, "utilization": null}
+            }
+            """.utf8)
+        let limits = try JSONDecoder().decode(UsageLimits.self, from: json)
+        #expect(limits.five_hour?.utilization == 0.0)
+        #expect(limits.five_hour?.resets_at == nil)
+        #expect(limits.seven_day?.utilization == 45.0)
+        #expect(limits.seven_day?.resets_at == "2026-02-13T01:59:59.999835+00:00")
     }
 }

@@ -3,46 +3,61 @@ import SwiftUI
 import AppKit
 @testable import ClaudeCodeUsage
 
-@Suite("ColorTier")
-struct ColorTierTests {
+@Suite("UsageColor — Calibrator")
+struct UsageColorTests {
 
-    @Test("combinedPct=0 → .red", arguments: [(0.0, ColorTier.red)])
-    func zeroIsRed(pct: Double, expected: ColorTier) {
-        #expect(ColorTier(combinedPct: pct) == expected)
+    @Test("Calibrator 0 (on pace) → green hue (120°)")
+    func zeroIsGreen() {
+        let color = UsageColor.fromCalibrator(0)
+        let nsColor = NSColor(color)
+        // 120/360 = 0.333
+        #expect(abs(nsColor.hueComponent - 1.0 / 3.0) < 0.01)
     }
 
-    @Test("Boundary and range mapping",
-          arguments: [
-            (0.0,   ColorTier.red),
-            (20.0,  ColorTier.red),     // ...20 includes 20
-            (21.0,  ColorTier.orange),
-            (50.0,  ColorTier.orange),  // boundary
-            (51.0,  ColorTier.blue),
-            (70.0,  ColorTier.blue),    // boundary
-            (71.0,  ColorTier.purple),
-            (90.0,  ColorTier.purple),  // boundary
-            (91.0,  ColorTier.green),
-            (100.0, ColorTier.green),
-          ])
-    func rangeMapping(pct: Double, expected: ColorTier) {
-        #expect(ColorTier(combinedPct: pct) == expected)
+    @Test("Calibrator +1 (max headroom) → red hue (0°)")
+    func plusOneIsRed() {
+        let color = UsageColor.fromCalibrator(1)
+        let nsColor = NSColor(color)
+        #expect(nsColor.hueComponent < 0.01 || nsColor.hueComponent > 0.99)
     }
 
-    @Test("Negative values fall into ...20 → .red")
-    func negativeIsRed() {
-        #expect(ColorTier(combinedPct: -5) == .red)
+    @Test("Calibrator -1 (max overshoot) → red hue (0°)")
+    func minusOneIsRed() {
+        let color = UsageColor.fromCalibrator(-1)
+        let nsColor = NSColor(color)
+        #expect(nsColor.hueComponent < 0.01 || nsColor.hueComponent > 0.99)
     }
 
-    @Test("Over-100 falls into default → .green")
-    func over100IsGreen() {
-        #expect(ColorTier(combinedPct: 150) == .green)
+    @Test("Calibrator +0.5 → yellow-ish hue (~60°)")
+    func halfIsYellowish() {
+        let color = UsageColor.fromCalibrator(0.5)
+        let nsColor = NSColor(color)
+        // magnitude 0.5 → hue = 0.5 * 120/360 = 0.167
+        #expect(abs(nsColor.hueComponent - 1.0 / 6.0) < 0.01)
     }
 
-    @Test("cgColor is derived from color via NSColor")
-    func cgColorDerived() {
-        for tier in [ColorTier.red, .orange, .blue, .purple, .green] {
-            let expected = NSColor(tier.color).cgColor
-            #expect(tier.cgColor == expected)
-        }
+    @Test("Calibrator -0.5 → same hue as +0.5 (magnitude-based)")
+    func negativeHalfSameHue() {
+        let pos = NSColor(UsageColor.fromCalibrator(0.5))
+        let neg = NSColor(UsageColor.fromCalibrator(-0.5))
+        #expect(abs(pos.hueComponent - neg.hueComponent) < 0.01)
+    }
+
+    @Test("Values beyond [-1, 1] are clamped")
+    func clamped() {
+        let over = NSColor(UsageColor.fromCalibrator(2.0))
+        let exact = NSColor(UsageColor.fromCalibrator(1.0))
+        #expect(abs(over.hueComponent - exact.hueComponent) < 0.01)
+
+        let under = NSColor(UsageColor.fromCalibrator(-3.0))
+        let minusOne = NSColor(UsageColor.fromCalibrator(-1.0))
+        #expect(abs(under.hueComponent - minusOne.hueComponent) < 0.01)
+    }
+
+    @Test("cgColorFromCalibrator round-trips through NSColor")
+    func cgColorRoundtrip() {
+        let color = UsageColor.fromCalibrator(0.3)
+        let expected = NSColor(color).cgColor
+        #expect(UsageColor.cgColorFromCalibrator(0.3) == expected)
     }
 }
