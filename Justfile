@@ -32,8 +32,11 @@ run: app
 
 # Run tests
 test:
-    xcodebuild test -project ClaudeCodeUsage.xcodeproj -scheme ClaudeCodeUsage -destination 'platform=macOS,arch=arm64' -quiet
+    xcodebuild test -project ClaudeCodeUsage.xcodeproj -scheme ClaudeCodeUsage -destination 'platform=macOS,arch=arm64'
 
 # Clear all data from the database
 clear-db:
     rm -f ~/.config/claude-code-usage/history.db
+    rm -f ~/.config/claude-code-usage/history-v2.store
+    rm -f ~/.config/claude-code-usage/history-v2.store-shm
+    rm -f ~/.config/claude-code-usage/history-v2.store-wal
