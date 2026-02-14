@@ -237,10 +237,10 @@ final class UsageOptimiser {
         let vel = max(velocity!, 0)
 
         guard optimalRate >= 1e-6 else {
-            return vel > 1e-6 ? -1 : 0
+            return vel > 1e-6 ? 1 : 0
         }
 
-        return max(-1, min(1, (optimalRate - vel) / optimalRate))
+        return max(-1, min(1, (vel - optimalRate) / optimalRate))
     }
 
     // MARK: - Velocity Estimation

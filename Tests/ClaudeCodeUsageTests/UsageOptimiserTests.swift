@@ -330,7 +330,7 @@ struct OptimiserCalibratorTests {
         #expect(result.calibrator <= 1)
     }
 
-    @Test("Idle user with headroom: positive calibrator")
+    @Test("Idle user with headroom: negative calibrator (under-using)")
     func idleWithHeadroom() {
         let now = Date()
         let sessionStart = now.addingTimeInterval(-1800) // 30 min ago
@@ -349,8 +349,8 @@ struct OptimiserCalibratorTests {
             weeklyUsage: 20, weeklyRemaining: 7970,
             timestamp: now
         )
-        // Idle (velocity ~0) but optimal rate > 0 → positive calibrator
-        #expect(result.calibrator > 0)
+        // Idle (velocity ~0) but optimal rate > 0 → negative calibrator (under-using)
+        #expect(result.calibrator < 0)
     }
 }
 
@@ -562,7 +562,7 @@ struct OptimiserPruningTests {
 @MainActor
 struct OptimiserScenarioTests {
 
-    @Test("Fresh session, behind on weekly: positive calibrator (use more)")
+    @Test("Fresh session, behind on weekly: velocity exceeds optimal rate")
     func behindOnWeekly() {
         let opt = makeTestOptimiser()
 
@@ -586,9 +586,10 @@ struct OptimiserScenarioTests {
             weeklyUsage: 10.7, weeklyRemaining: 1405,
             timestamp: now.addingTimeInterval(2100)
         )
-        // Far behind on weekly (only 10% used with 1 day left)
-        // Target should be 100, calibrator should be positive or near zero
+        // Far behind on weekly (only 10% used with 1 day left) → target 100
+        // But velocity (~0.4 %/min) exceeds optimal (~0.325 %/min) → positive (over-using)
         #expect(result.target == 100)
+        #expect(result.calibrator > 0)
     }
 
     @Test("Running hot: ahead of schedule, target reduced")
@@ -605,7 +606,7 @@ struct OptimiserScenarioTests {
         #expect(result.target < 100)
     }
 
-    @Test("Session usage exceeds target: calibrator should be negative or 0")
+    @Test("Session usage exceeds target: positive calibrator (over-using)")
     func usageExceedsTarget() {
         let now = Date()
         // Build a session with polls so we have velocity data
@@ -627,12 +628,7 @@ struct OptimiserScenarioTests {
             weeklyUsage: 59.2, weeklyRemaining: 6470,
             timestamp: now
         )
-        // Far ahead → target reduced. If usage already exceeds target, optimal rate → 0
-        if result.target < result.target { // always false, just to show the logic
-            #expect(result.calibrator <= 0)
-        }
-        // At minimum, calibrator is bounded
-        #expect(result.calibrator >= -1)
-        #expect(result.calibrator <= 1)
+        // Far ahead → target reduced, velocity exceeds optimal → positive calibrator (over-using)
+        #expect(result.calibrator > 0)
     }
 }

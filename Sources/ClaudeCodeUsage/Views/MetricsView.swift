@@ -66,8 +66,8 @@ struct MetricsView: View {
     private var calibratorLabel: String {
         let cal = metrics.calibrator
         if abs(cal) < 0.1 { return "On pace" }
-        if cal > 0 { return "Use more" }
-        return "Ease off"
+        if cal > 0 { return "Ease off" }
+        return "Use more"
     }
 
     private func formatMinutes(_ mins: Double) -> String {
