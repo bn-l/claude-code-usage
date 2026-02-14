@@ -4,6 +4,17 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "Monitor")
 
+struct AppError: Identifiable, Sendable {
+    let id = UUID()
+    let message: String
+    let timestamp: Date
+
+    init(message: String, timestamp: Date = Date()) {
+        self.message = message
+        self.timestamp = timestamp
+    }
+}
+
 @Observable
 @MainActor
 final class UsageMonitor {
@@ -12,18 +23,12 @@ final class UsageMonitor {
             logger.trace("metrics updated: calibrator=\(self.metrics?.calibrator ?? -99, privacy: .public)")
         }
     }
-    var lastError: String? {
-        didSet {
-            if let error = lastError {
-                logger.debug("lastError changed: \(error, privacy: .public)")
-            } else {
-                logger.trace("lastError cleared")
-            }
-        }
-    }
+    var errors: [AppError] = []
+    var hasError: Bool { !errors.isEmpty }
     var isLoading = false
     var lastUpdated: Date?
     var config = AppConfig.load()
+    private var napActivity: (any NSObjectProtocol)?
 
     // internal(set) for test injection
     var optimiser: UsageOptimiser?
@@ -35,6 +40,7 @@ final class UsageMonitor {
 
     func startPolling() async {
         logger.info("startPolling: pollInterval=\(self.config.pollIntervalSeconds, privacy: .public)s")
+        napActivity = ProcessInfo.processInfo.beginActivity(options: .background, reason: "Periodic API polling")
 
         ensureOptimiser()
 
@@ -76,7 +82,7 @@ final class UsageMonitor {
             sessionTarget: result.target,
             timestamp: Date()
         )
-        lastError = nil
+        errors.removeAll()
         lastUpdated = Date()
 
         logger.info("Poll complete: calibrator=\(result.calibrator, privacy: .public) target=\(result.target, privacy: .public) optimalRate=\(result.optimalRate, privacy: .public)")
@@ -91,6 +97,12 @@ final class UsageMonitor {
         )
     }
 
+    private func appendError(_ message: String) {
+        logger.debug("Error recorded: \(message, privacy: .public)")
+        errors.append(AppError(message: message))
+        if errors.count > 10 { errors.removeFirst(errors.count - 10) }
+    }
+
     private func poll() async {
         logger.debug("poll() start")
         isLoading = true
@@ -101,7 +113,7 @@ final class UsageMonitor {
 
         do {
             guard let token = CredentialProvider.readToken() else {
-                lastError = "No OAuth token in Keychain. Run: claude login"
+                appendError("No OAuth token in Keychain. Run: claude login")
                 logger.warning("No credentials available, skipping poll")
                 return
             }
@@ -120,7 +132,7 @@ final class UsageMonitor {
                 weeklyMinsLeft: minutesUntil(response.seven_day?.resets_at)
             )
         } catch {
-            lastError = error.localizedDescription
+            appendError(error.localizedDescription)
             logger.error("Poll failed: \(error.localizedDescription, privacy: .public)")
         }
     }

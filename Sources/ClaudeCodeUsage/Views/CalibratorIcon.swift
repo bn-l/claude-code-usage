@@ -6,9 +6,15 @@ private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "C
 
 struct CalibratorIcon: View {
     let calibrator: Double
+    var hasError = false
 
     var body: some View {
-        Image(nsImage: renderIcon())
+        if hasError {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+        } else {
+            Image(nsImage: renderIcon())
+        }
     }
 
     private func renderIcon() -> NSImage {

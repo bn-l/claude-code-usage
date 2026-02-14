@@ -143,21 +143,21 @@ struct UsageMonitorPollingTests {
         #expect(monitor.metrics != nil)
         #expect(monitor.metrics!.sessionUsagePct == 25)
         #expect(monitor.metrics!.weeklyUsagePct == 30)
-        #expect(monitor.lastError == nil)
+        #expect(monitor.errors.isEmpty)
         #expect(monitor.lastUpdated != nil)
     }
 
-    @Test("processResponse clears lastError on success")
+    @Test("processResponse clears errors on success")
     func clearsError() {
         let monitor = makeTestMonitor()
-        monitor.lastError = "previous error"
+        monitor.errors = [AppError(message: "previous error")]
 
         monitor.processResponse(
             sessionUsagePct: 25, weeklyUsagePct: 30,
             sessionMinsLeft: 200, weeklyMinsLeft: 6000
         )
 
-        #expect(monitor.lastError == nil)
+        #expect(monitor.errors.isEmpty)
     }
 
     @Test("Metrics contain calibrator from optimiser")

@@ -3,6 +3,17 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "API")
 
+enum APIError: LocalizedError {
+    case server(status: Int, message: String)
+
+    var errorDescription: String? {
+        switch self {
+        case .server(let status, let message):
+            return "API \(status): \(message)"
+        }
+    }
+}
+
 enum UsageAPIClient {
     private static let endpoint = URL(string: "https://api.anthropic.com/api/oauth/usage")!
 
@@ -27,6 +38,11 @@ enum UsageAPIClient {
         guard http.statusCode == 200 else {
             let body = String(data: data, encoding: .utf8) ?? ""
             logger.error("API error: status=\(http.statusCode, privacy: .public) body=\(body, privacy: .public)")
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let errorObj = json["error"] as? [String: Any],
+               let message = errorObj["message"] as? String {
+                throw APIError.server(status: http.statusCode, message: message)
+            }
             throw URLError(.badServerResponse)
         }
 
