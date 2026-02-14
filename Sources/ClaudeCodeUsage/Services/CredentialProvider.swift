@@ -1,5 +1,4 @@
 import Foundation
-import Security
 import OSLog
 
 private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "Credentials")
@@ -8,33 +7,39 @@ enum CredentialProvider {
     private static let serviceName = "Claude Code-credentials"
 
     static func readToken() -> String? {
-        logger.debug("Reading credentials from Keychain: service=\(serviceName, privacy: .public)")
+        logger.debug("Reading credentials via security CLI: service=\(serviceName, privacy: .public)")
 
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/security")
+        process.arguments = ["find-generic-password", "-a", NSUserName(), "-w", "-s", serviceName]
 
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = Pipe()
 
-        guard status == errSecSuccess else {
-            let desc = SecCopyErrorMessageString(status, nil) as String? ?? "unknown"
-            logger.warning("Keychain lookup failed: status=\(status, privacy: .public) error=\(desc, privacy: .public)")
+        do {
+            try process.run()
+        } catch {
+            logger.warning("Failed to launch security CLI: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            logger.warning("security CLI exited: status=\(process.terminationStatus, privacy: .public)")
             return nil
         }
 
-        guard let data = result as? Data else {
-            logger.error("Keychain returned non-data result")
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        guard let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !output.isEmpty else {
+            logger.error("security CLI returned empty or non-UTF8 output")
             return nil
         }
 
-        logger.debug("Keychain data read: bytes=\(data.count, privacy: .public)")
-
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            logger.error("Keychain data is not a JSON object")
+        guard let jsonData = output.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            logger.error("Credential data is not a JSON object")
             return nil
         }
 
@@ -50,7 +55,7 @@ enum CredentialProvider {
         }
 
         let prefix = String(token.prefix(8))
-        logger.info("Credentials loaded from Keychain: tokenPrefix=\(prefix, privacy: .public)...")
+        logger.info("Credentials loaded via security CLI: tokenPrefix=\(prefix, privacy: .public)...")
         return token
     }
 }
