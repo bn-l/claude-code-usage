@@ -132,9 +132,9 @@ final class UsageOptimiser {
         if let projected = weeklyProjected(poll) {
             let velocityDeviation = (100 - projected) / 100
             let raw = 0.5 * positional + 0.5 * velocityDeviation
-            return tanh(4 * raw)
+            return tanh(2 * raw)
         }
-        return tanh(4 * positional)
+        return tanh(2 * positional)
     }
 
     private func weeklyExpected(_ poll: Poll) -> Double {
