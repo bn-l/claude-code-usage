@@ -449,7 +449,7 @@ def print_mw_learning_curve(
         base_wu = agg_wu["No Feedback"][w] if "No Feedback" in agg_wu else 33.7
         cells = []
         for a in active:
-            improvement = max(0, agg_wu[a][w] - base_wu)
+            improvement = agg_wu[a][w] - base_wu
             eff = improvement / max(agg_cal[a][w], 0.001)
             cells.append(f"{eff:.1f}")
         print(f"| {w + 1} | " + " | ".join(cells) + " |")
@@ -475,17 +475,20 @@ def print_mw_per_compliance(
 
 
 def print_mw_convergence(
-    convergence: dict[str, dict[int, list[tuple[float, float, float]]]],
+    convergence: dict[str, dict[int, list]],
     compliance_profiles: dict,
 ):
     print("### Parameter Convergence — Adaptive\n")
     print("| Compliance | True DZ | Est DZ (wk1) | Est DZ (wk8) "
-          "| Est Gain (wk1) | Est Gain (wk8) | Conf (wk8) |")
+          "| Est Gain (wk1) | Est Gain (wk8) | Conf (wk8) "
+          "| True Delay | Est Delay (wk8) |")
     print("|------------|---------|--------------|-------------- "
-          "|----------------|----------------|------------|")
+          "|----------------|----------------|------------ "
+          "|------------|-----------------|")
 
     for cname in compliance_profiles:
         true_dz = compliance_profiles[cname]["dead_zone"]
+        true_delay = compliance_profiles[cname]["delay"]
         wk1 = convergence[cname].get(0, [])
         wk8 = convergence[cname].get(N_MW_WEEKS - 1, [])
 
@@ -494,7 +497,9 @@ def print_mw_convergence(
         dz8 = float(np.mean([c[1] for c in wk8])) if wk8 else 0
         g8 = float(np.mean([c[0] for c in wk8])) if wk8 else 0
         conf8 = float(np.mean([c[2] for c in wk8])) if wk8 else 0
+        delay8 = float(np.mean([c[3] for c in wk8 if len(c) > 3])) if wk8 else 1
 
         print(f"| {cname} | {true_dz:.2f} | {dz1:.2f} | {dz8:.2f} "
-              f"| {g1:.3f} | {g8:.3f} | {conf8:.2f} |")
+              f"| {g1:.3f} | {g8:.3f} | {conf8:.2f} "
+              f"| {true_delay} | {delay8:.1f} |")
     print()

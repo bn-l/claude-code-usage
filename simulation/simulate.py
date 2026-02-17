@@ -419,7 +419,8 @@ def _mw_worker(args):
             weekly_stats.append(compute_cl_stats(polls, cals))
 
             if hasattr(algo, "gain"):
-                weekly_conv.append((algo.gain, algo.dead_zone, algo.confidence))
+                weekly_conv.append((algo.gain, algo.dead_zone, algo.confidence,
+                                    getattr(algo, "estimated_delay", 1)))
             else:
                 weekly_conv.append(None)
 

@@ -623,10 +623,10 @@ class SoftThrottleStep:
 class AdaptiveStep:
     """Adaptive controller: learns user response function, produces minimum-amplitude signals."""
 
-    PRIOR_GAIN = 0.15
+    PRIOR_GAIN = 0.30  # normalized: compliance * COMPLIANCE_GAIN
     PRIOR_DZ = 0.25
-    GAIN_FLOOR = 0.02
-    GAIN_CAP = 2.0
+    GAIN_FLOOR = 0.01  # normalized floor
+    GAIN_CAP = 1.5     # normalized cap (compliance * gain can't exceed ~0.7)
     WARMUP_N = 20
     ALPHA_GAIN = 0.08
     ALPHA_BL = 0.1
@@ -637,6 +637,9 @@ class AdaptiveStep:
     DZ_MIN = 0.05
     DZ_MAX = 0.8
     DZ_WINDOW = 0.12
+    SIGNAL_CAP = 0.85
+    MAX_DELAY = 8
+    DELAY_BUF_SIZE = 60
 
     def __init__(self):
         self._init_session()
@@ -656,6 +659,8 @@ class AdaptiveStep:
         self.baseline_rate: float = 0.3
         self.gain_obs_count: int = 0
         self.gain_variance: float = 0.1
+        self.estimated_delay: int = 1
+        self._delay_buf: list[tuple[float, list[float]]] = []
 
     def reset(self):
         self._init_session()
@@ -706,13 +711,15 @@ class AdaptiveStep:
         else:
             eff_gain = (self.confidence * self.gain
                         + (1 - self.confidence) * self.PRIOR_GAIN)
-            raw = error / max(eff_gain, self.GAIN_FLOOR)
+            # gain is normalized (dimensionless), scale by baseline_rate for absolute units
+            raw = error / max(self.baseline_rate * eff_gain, 0.001)
             # dead zone boost — if signaling, ensure we exceed perception threshold
             if 0 < abs(raw) < self.dead_zone * 1.1:
                 raw = (1.0 if raw > 0 else -1.0) * self.dead_zone * 1.1
 
         delta = max(-self.MAX_DELTA_C, min(self.MAX_DELTA_C, raw - self.prev_signal))
-        return max(-1.0, min(1.0, self.prev_signal + delta))
+        # hard cap below fatigue threshold (FATIGUE_SAT=0.9) to prevent fatigue cycle
+        return max(-self.SIGNAL_CAP, min(self.SIGNAL_CAP, self.prev_signal + delta))
 
     def _learn(self, poll: Poll):
         if len(self.session_polls) < 3:
@@ -726,10 +733,19 @@ class AdaptiveStep:
 
         observed_rate = (poll.su - pp.su) / dt
 
-        # signal from 1 poll ago (estimated delay = 1)
-        if len(self.signal_history) < 2:
+        # need enough signal history to probe all candidate delays
+        if len(self.signal_history) < self.MAX_DELAY:
             return
-        past_signal = self.signal_history[-2]
+
+        # accumulate (rate, signals-at-each-lag) for delay estimation
+        sigs = [self.signal_history[-d] for d in range(1, self.MAX_DELAY + 1)]
+        self._delay_buf.append((observed_rate, sigs))
+        if len(self._delay_buf) > self.DELAY_BUF_SIZE:
+            self._delay_buf.pop(0)
+
+        self._estimate_delay()
+
+        past_signal = self.signal_history[-self.estimated_delay]
 
         # baseline update from low-signal periods
         if abs(past_signal) < self.dead_zone * 0.5:
@@ -742,8 +758,12 @@ class AdaptiveStep:
         # gain update from above-dead-zone signals
         if abs(past_signal) > self.dead_zone:
             response = observed_rate - self.baseline_rate
-            # positive signal → user slows → response < 0 → gain = -response/signal > 0
-            obs_gain = max(self.GAIN_FLOOR, min(self.GAIN_CAP, -response / past_signal))
+            # miss-aware: skip near-zero responses (likely missed, not low gain)
+            if abs(response) < 0.01:
+                return
+            # normalized gain: divide response by baseline_rate for dimensionless estimate
+            bl = max(abs(self.baseline_rate), 0.01)
+            obs_gain = max(self.GAIN_FLOOR, min(self.GAIN_CAP, -response / (bl * past_signal)))
 
             self.gain = (1 - self.ALPHA_GAIN) * self.gain + self.ALPHA_GAIN * obs_gain
             self.gain = max(self.GAIN_FLOOR, self.gain)
@@ -766,6 +786,32 @@ class AdaptiveStep:
                 self.dead_zone = max(self.DZ_MIN, self.dead_zone - self.DZ_STEP)
             else:
                 self.dead_zone = min(self.DZ_MAX, self.dead_zone + self.DZ_STEP)
+
+    def _estimate_delay(self):
+        """Cross-correlate signal at lags 1..MAX_DELAY with rate response."""
+        if len(self._delay_buf) < 20:
+            return
+        rates = [r for r, _ in self._delay_buf]
+        mean_rate = sum(rates) / len(rates)
+
+        best_lag = self.estimated_delay
+        best_score = -float('inf')
+
+        for d_idx in range(self.MAX_DELAY):
+            score = 0.0
+            n = 0
+            for rate, sigs_at_lags in self._delay_buf:
+                s = sigs_at_lags[d_idx]
+                if abs(s) > 0.1:  # only count meaningful signals
+                    score += -(rate - mean_rate) * s
+                    n += 1
+            if n >= 5:
+                score /= n
+                if score > best_score:
+                    best_score = score
+                    best_lag = d_idx + 1  # 1-indexed lag
+        if best_score > 0:
+            self.estimated_delay = best_lag
 
 
 STEP_ALGORITHMS: dict[str, type] = {
