@@ -147,7 +147,8 @@ final class UsageOptimiser {
         guard poll.weeklyRemaining > 0 else { return 0 }
 
         let expected = weeklyExpected(poll)
-        let positional = (poll.weeklyUsage - expected) / 100
+        let remainingFrac = max(poll.weeklyRemaining / Self.weekMinutes, 0.1)
+        let positional = (poll.weeklyUsage - expected) / (100 * remainingFrac)
 
         if let projected = weeklyProjected(poll) {
             let velocityDeviation = (projected - 100) / 100
@@ -247,7 +248,8 @@ final class UsageOptimiser {
         let elapsed = Self.sessionMinutes - poll.sessionRemaining
         guard elapsed >= 5 else { return 0 }
         let expectedUsage = target * (elapsed / Self.sessionMinutes)
-        return (poll.sessionUsage - expectedUsage) / max(target, 1)
+        let remainingFrac = max(poll.sessionRemaining / Self.sessionMinutes, 0.1)
+        return (poll.sessionUsage - expectedUsage) / max(target * remainingFrac, 1)
     }
 
     // MARK: - Stage 4: Calibrator (PB+Pipe)
