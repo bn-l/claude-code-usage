@@ -620,6 +620,154 @@ class SoftThrottleStep:
         return max(-1.0, min(1.0, tanh(1.5 * (vel / optimal - 1.0))))
 
 
+class AdaptiveStep:
+    """Adaptive controller: learns user response function, produces minimum-amplitude signals."""
+
+    PRIOR_GAIN = 0.15
+    PRIOR_DZ = 0.25
+    GAIN_FLOOR = 0.02
+    GAIN_CAP = 2.0
+    WARMUP_N = 20
+    ALPHA_GAIN = 0.08
+    ALPHA_BL = 0.1
+    ALPHA_VAR = 0.05
+    MAX_DELTA_C = 0.2
+    NOISE_FLOOR = 0.005
+    DZ_STEP = 0.005
+    DZ_MIN = 0.05
+    DZ_MAX = 0.8
+    DZ_WINDOW = 0.12
+
+    def __init__(self):
+        self._init_session()
+        self._init_learned()
+
+    def _init_session(self):
+        self.session_polls: list[Poll] = []
+        self.prev: Poll | None = None
+        self._ema: float | None = None
+        self.prev_signal: float = 0.0
+        self.signal_history: list[float] = []
+
+    def _init_learned(self):
+        self.gain: float = self.PRIOR_GAIN
+        self.dead_zone: float = self.PRIOR_DZ
+        self.confidence: float = 0.0
+        self.baseline_rate: float = 0.3
+        self.gain_obs_count: int = 0
+        self.gain_variance: float = 0.1
+
+    def reset(self):
+        self._init_session()
+        # learned params (gain, dead_zone, confidence, baseline_rate) persist
+
+    def step(self, poll: Poll) -> float:
+        if detect_boundary(poll, self.prev):
+            self._init_session()
+        self.session_polls.append(poll)
+
+        if len(self.session_polls) >= 2:
+            pp = self.session_polls[-2]
+            dt = poll.t - pp.t
+            if 0 < dt <= GAP_THRESHOLD:
+                iv = (poll.su - pp.su) / dt
+                self._ema = (
+                    iv if self._ema is None
+                    else EMA_ALPHA * iv + (1 - EMA_ALPHA) * self._ema
+                )
+
+        self.prev = poll
+        self._learn(poll)
+
+        error = self._pace_error(poll)
+        signal = self._to_signal(error)
+        self.signal_history.append(signal)
+        self.prev_signal = signal
+        return signal
+
+    def _pace_error(self, poll: Poll) -> float:
+        dev = weekly_deviation(poll)
+        tgt = session_target(dev)
+        if poll.sr <= 0:
+            return 0.0
+        elapsed = SESSION_MIN - poll.sr
+        tau = max(poll.sr, 0.1)
+        optimal = min(max((tgt - poll.su) / tau, 0), max((100 - poll.su) / tau, 0))
+        vel = self._ema
+        if vel is None:
+            if elapsed < 5:
+                return 0.0
+            vel = poll.su / max(elapsed, 0.1)
+        return max(vel, 0.0) - optimal
+
+    def _to_signal(self, error: float) -> float:
+        if abs(error) < self.NOISE_FLOOR:
+            raw = 0.0
+        else:
+            eff_gain = (self.confidence * self.gain
+                        + (1 - self.confidence) * self.PRIOR_GAIN)
+            raw = error / max(eff_gain, self.GAIN_FLOOR)
+            # dead zone boost — if signaling, ensure we exceed perception threshold
+            if 0 < abs(raw) < self.dead_zone * 1.1:
+                raw = (1.0 if raw > 0 else -1.0) * self.dead_zone * 1.1
+
+        delta = max(-self.MAX_DELTA_C, min(self.MAX_DELTA_C, raw - self.prev_signal))
+        return max(-1.0, min(1.0, self.prev_signal + delta))
+
+    def _learn(self, poll: Poll):
+        if len(self.session_polls) < 3:
+            return
+        if SESSION_MIN - poll.sr < 5:
+            return
+        pp = self.session_polls[-2]
+        dt = poll.t - pp.t
+        if dt <= 0 or dt > GAP_THRESHOLD:
+            return
+
+        observed_rate = (poll.su - pp.su) / dt
+
+        # signal from 1 poll ago (estimated delay = 1)
+        if len(self.signal_history) < 2:
+            return
+        past_signal = self.signal_history[-2]
+
+        # baseline update from low-signal periods
+        if abs(past_signal) < self.dead_zone * 0.5:
+            self.baseline_rate = (
+                (1 - self.ALPHA_BL) * self.baseline_rate
+                + self.ALPHA_BL * observed_rate
+            )
+            return
+
+        # gain update from above-dead-zone signals
+        if abs(past_signal) > self.dead_zone:
+            response = observed_rate - self.baseline_rate
+            # positive signal → user slows → response < 0 → gain = -response/signal > 0
+            obs_gain = max(self.GAIN_FLOOR, min(self.GAIN_CAP, -response / past_signal))
+
+            self.gain = (1 - self.ALPHA_GAIN) * self.gain + self.ALPHA_GAIN * obs_gain
+            self.gain = max(self.GAIN_FLOOR, self.gain)
+
+            self.gain_obs_count += 1
+            diff_sq = (obs_gain - self.gain) ** 2
+            self.gain_variance = (
+                (1 - self.ALPHA_VAR) * self.gain_variance + self.ALPHA_VAR * diff_sq
+            )
+
+            warmup = min(1.0, self.gain_obs_count / self.WARMUP_N)
+            stability = 1.0 / (1.0 + self.gain_variance)
+            self.confidence = warmup * stability
+
+        # dead zone update from near-boundary signals
+        if abs(abs(past_signal) - self.dead_zone) < self.DZ_WINDOW:
+            response = observed_rate - self.baseline_rate
+            responded = response * past_signal < 0 and abs(response) > 0.01
+            if responded:
+                self.dead_zone = max(self.DZ_MIN, self.dead_zone - self.DZ_STEP)
+            else:
+                self.dead_zone = min(self.DZ_MAX, self.dead_zone + self.DZ_STEP)
+
+
 STEP_ALGORITHMS: dict[str, type] = {
     "No Feedback": NoFeedbackStep,
     "Current": CurrentStep,
@@ -635,4 +783,5 @@ STEP_ALGORITHMS: dict[str, type] = {
     "TriBlend": TripleBlendStep,
     "PB+Pipe": PBPipelineStep,
     "SoftThrot": SoftThrottleStep,
+    "Adaptive": AdaptiveStep,
 }
