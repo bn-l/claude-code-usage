@@ -95,6 +95,8 @@ struct PopoverView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.caption)
                 .foregroundStyle(.orange)
+                .padding(4)
+                .background(.background.opacity(0.8), in: RoundedRectangle(cornerRadius: 4))
         }
         .buttonStyle(.plain)
     }
