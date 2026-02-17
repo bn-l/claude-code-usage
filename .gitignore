@@ -1,4 +1,6 @@
 
+simulation/results_*.md
+
 # Build artifacts
 .build/
 build/
@@ -16,3 +18,9 @@ REPOMAP.md
 CODEGUIDE.md
 **/.cursor
 .mcp.json
+
+# OS
+.DS_Store
+
+# Python
+__pycache__/
