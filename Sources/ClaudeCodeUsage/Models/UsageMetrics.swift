@@ -10,6 +10,9 @@ struct UsageMetrics: Sendable {
     let sessionTarget: Double
     let sessionDeviation: Double
     let dailyDeviation: Double
+    let weeklyDeviation: Double
+    let sessionElapsedPct: Double
+    let weeklyElapsedPct: Double
     let timestamp: Date
 
     var color: Color { UsageColor.fromCalibrator(calibrator) }

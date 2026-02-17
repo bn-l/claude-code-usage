@@ -20,6 +20,13 @@ struct MetricsView: View {
             )
 
             DeviationRow(
+                label: "Weekly Pace",
+                value: metrics.weeklyDeviation,
+                positiveLabel: "Ahead",
+                negativeLabel: "Behind"
+            )
+
+            DeviationRow(
                 label: "Daily Budget",
                 value: metrics.dailyDeviation,
                 positiveLabel: "Over",
@@ -30,6 +37,7 @@ struct MetricsView: View {
             GaugeRow(
                 label: "Session",
                 value: metrics.sessionUsagePct,
+                elapsedPct: metrics.sessionElapsedPct,
                 detail: "\(formatMinutes(metrics.sessionMinsLeft)) left \u{2022} target \(Int(metrics.sessionTarget))%"
             )
 
@@ -37,6 +45,7 @@ struct MetricsView: View {
             GaugeRow(
                 label: "Weekly",
                 value: metrics.weeklyUsagePct,
+                elapsedPct: metrics.weeklyElapsedPct,
                 detail: "\(formatMinutesLong(metrics.weeklyMinsLeft)) until reset"
             )
         }
@@ -121,6 +130,7 @@ struct DeviationRow: View {
 struct GaugeRow: View {
     let label: String
     let value: Double
+    var elapsedPct: Double? = nil
     var detail: String? = nil
 
     var body: some View {
@@ -146,6 +156,19 @@ struct GaugeRow: View {
                 }
             }
             .frame(height: 6)
+
+            if let elapsed = elapsedPct {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.primary.opacity(0.05))
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color.primary.opacity(0.12))
+                            .frame(width: geo.size.width * min(elapsed / 100, 1))
+                    }
+                }
+                .frame(height: 3)
+            }
 
             if let detail {
                 Text(detail)

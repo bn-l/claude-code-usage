@@ -93,6 +93,9 @@ final class UsageMonitor {
             sessionTarget: result.target,
             sessionDeviation: result.sessionDeviation,
             dailyDeviation: result.dailyDeviation,
+            weeklyDeviation: result.weeklyDeviation,
+            sessionElapsedPct: (UsageOptimiser.sessionMinutes - sessionMinsLeft) / UsageOptimiser.sessionMinutes * 100,
+            weeklyElapsedPct: (UsageOptimiser.weekMinutes - weeklyMinsLeft) / UsageOptimiser.weekMinutes * 100,
             timestamp: Date()
         )
         errors.removeAll()
