@@ -462,15 +462,16 @@ final class UsageOptimiser {
         guard dailyAllotment > 0.01 else { return 0 }
 
         // Time-proportional: what fraction of today's active hours have elapsed?
-        let calendar = Calendar.current
-        let boundary = dayBoundary(for: poll.timestamp, calendar: calendar)
-        let dayEnd = boundary.addingTimeInterval(86400)
-        let activeTotal = activeHoursInRange(from: boundary, to: dayEnd)
-        let activeElapsed = activeHoursInRange(from: boundary, to: poll.timestamp)
-        let elapsedFrac = activeTotal > 0 ? activeElapsed / activeTotal : 0
+        // let calendar = Calendar.current
+        // let boundary = dayBoundary(for: poll.timestamp, calendar: calendar)
+        // let dayEnd = boundary.addingTimeInterval(86400)
+        // let activeTotal = activeHoursInRange(from: boundary, to: dayEnd)
+        // let activeElapsed = activeHoursInRange(from: boundary, to: poll.timestamp)
+        // let elapsedFrac = activeTotal > 0 ? activeElapsed / activeTotal : 0
+        // let expected = dailyAllotment * elapsedFrac
+        // let raw = (dailyDelta - expected) / dailyAllotment
 
-        let expected = dailyAllotment * elapsedFrac
-        let raw = (dailyDelta - expected) / dailyAllotment
+        let raw = dailyDelta / dailyAllotment
         return min(max(raw, -1), 1)
     }
 
