@@ -24,8 +24,8 @@ import numpy as np
 
 from constants import (
     ACTIVE_END, ACTIVE_START, COMPLIANCE_GAIN, EXCHANGE_RATE, FATIGUE_FLOOR,
-    FATIGUE_RATE, FATIGUE_SAT, MP_CTX, N_CLOSED_RUNS, N_OPEN_RUNS,
-    N_WORKERS, POLL_INTERVAL, SESSION_MIN, WEEK_MIN, Poll,
+    FATIGUE_RATE, FATIGUE_SAT, MP_CTX, N_CLOSED_RUNS, N_MW_RUNS, N_MW_WEEKS,
+    N_OPEN_RUNS, N_WORKERS, POLL_INTERVAL, SESSION_MIN, WEEK_MIN, Poll,
 )
 from profiles import COMPLIANCE_PROFILES, PROFILES
 from helpers import detect_boundary
@@ -35,6 +35,7 @@ from analysis import (
     CLRunStats, EdgeCoverage, Stats,
     aggregate, aggregate_cl, compute_cl_stats, compute_edge_coverage,
     compute_stats, print_cl_table, print_cl_verdict, print_coverage,
+    print_mw_convergence, print_mw_learning_curve, print_mw_per_compliance,
     print_open_verdict, print_table,
 )
 
@@ -387,6 +388,108 @@ def run_closed_loop():
 
 
 # ════════════════════════════════════════════════════════════════════════
+#  MULTI-WEEK ADAPTIVE LEARNING
+# ════════════════════════════════════════════════════════════════════════
+
+MW_ALGORITHMS = ["No Feedback", "Current", "PACE", "PB+Pipe", "Adaptive"]
+
+
+def _mw_worker(args):
+    """Multi-week worker: one (compliance, profile, seed), all MW algos."""
+    cname, pname, seed = args
+    pfn = PROFILES[pname]
+    cp = COMPLIANCE_PROFILES[cname]
+
+    algo_results = {}
+    for aname in MW_ALGORITHMS:
+        algo = STEP_ALGORITHMS[aname]()
+        weekly_stats: list[CLRunStats | None] = []
+        weekly_conv: list[tuple[float, float, float] | None] = []
+
+        for week in range(N_MW_WEEKS):
+            week_seed = seed * 1000 + week
+            polls, cals = simulate_week_closed_loop(
+                pfn, algo, week_seed,
+                compliance=cp["compliance"],
+                delay=cp["delay"],
+                noise_std=cp["noise_std"],
+                miss_prob=cp["miss_prob"],
+                dead_zone=cp["dead_zone"],
+            )
+            weekly_stats.append(compute_cl_stats(polls, cals))
+
+            if hasattr(algo, "gain"):
+                weekly_conv.append((algo.gain, algo.dead_zone, algo.confidence))
+            else:
+                weekly_conv.append(None)
+
+        algo_results[aname] = (weekly_stats, weekly_conv)
+
+    return cname, algo_results
+
+
+def run_multi_week():
+    n_profiles = len(PROFILES)
+    n_compliance = len(COMPLIANCE_PROFILES)
+    n_tasks = n_profiles * n_compliance * N_MW_RUNS
+    n_total = n_tasks * len(MW_ALGORITHMS) * N_MW_WEEKS
+
+    print("\n---\n")
+    print("## Part 3: Multi-Week Adaptive Learning\n")
+    print(f"{N_MW_WEEKS} weeks × {n_profiles} profiles × {n_compliance} compliance × "
+          f"{N_MW_RUNS} seeds × {len(MW_ALGORITHMS)} algorithms = {n_total} sim-weeks"
+          f" ({N_WORKERS} workers)\n")
+
+    t0 = time.monotonic()
+
+    per_week: dict[str, dict[str, dict[int, list[CLRunStats]]]] = {
+        cname: {a: {w: [] for w in range(N_MW_WEEKS)} for a in MW_ALGORITHMS}
+        for cname in COMPLIANCE_PROFILES
+    }
+    convergence: dict[str, dict[int, list[tuple[float, float, float]]]] = {
+        cname: {w: [] for w in range(N_MW_WEEKS)}
+        for cname in COMPLIANCE_PROFILES
+    }
+
+    tasks = [
+        (cname, pname, seed)
+        for cname in COMPLIANCE_PROFILES
+        for pname in PROFILES
+        for seed in range(N_MW_RUNS)
+    ]
+    done = 0
+
+    with MP_CTX.Pool(N_WORKERS) as pool:
+        for cname, algo_results in pool.imap_unordered(_mw_worker, tasks, chunksize=10):
+            done += 1
+            if done % 50 == 0 or done == len(tasks):
+                elapsed = time.monotonic() - t0
+                rate = done / elapsed if elapsed > 0 else 0
+                eta = (len(tasks) - done) / rate if rate > 0 else 0
+                sys.stderr.write(
+                    f"\r  MW [{done}/{len(tasks)}] "
+                    f"{elapsed:.0f}s elapsed, ~{eta:.0f}s remaining"
+                )
+                sys.stderr.flush()
+
+            for aname, (weekly_stats, weekly_conv) in algo_results.items():
+                for w in range(N_MW_WEEKS):
+                    if weekly_stats[w]:
+                        per_week[cname][aname][w].append(weekly_stats[w])
+                    if weekly_conv[w] is not None:
+                        convergence[cname][w].append(weekly_conv[w])
+
+    sys.stderr.write("\r" + " " * 72 + "\r")
+    sys.stderr.flush()
+    wall = time.monotonic() - t0
+    print(f"_Completed in {wall:.1f}s ({n_total / wall:.0f} sim-weeks/s)_\n")
+
+    print_mw_learning_curve(per_week, MW_ALGORITHMS)
+    print_mw_per_compliance(per_week, MW_ALGORITHMS)
+    print_mw_convergence(convergence, COMPLIANCE_PROFILES)
+
+
+# ════════════════════════════════════════════════════════════════════════
 #  MAIN
 # ════════════════════════════════════════════════════════════════════════
 
@@ -427,6 +530,7 @@ def main():
 
     run_open_loop()
     run_closed_loop()
+    run_multi_week()
 
     sys.stdout = orig_stdout
     outpath.write_text(buf.getvalue())

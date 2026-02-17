@@ -21,6 +21,8 @@ COMPLIANCE_GAIN = 0.7  # max rate modulation from calibrator
 FATIGUE_RATE = 0.003  # compliance decay per consecutive saturated tick
 FATIGUE_FLOOR = 0.85  # minimum fatigue multiplier (15% max reduction)
 FATIGUE_SAT = 0.9  # |cal| above this counts as saturated for fatigue
+N_MW_WEEKS = 8
+N_MW_RUNS = 20
 N_WORKERS = min(os.cpu_count() or 4, 8)
 MP_CTX = multiprocessing.get_context("fork")
 

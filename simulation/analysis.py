@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from constants import POLL_INTERVAL, SESSION_MIN, Poll
+from constants import N_MW_WEEKS, POLL_INTERVAL, SESSION_MIN, Poll
 from helpers import weekly_deviation, weekly_expected, session_target
 
 
@@ -382,4 +382,119 @@ def print_cl_verdict(overall: dict[str, CLAgg | None]):
         vals = {a: getattr(overall[a], attr) for a in algos if overall[a] is not None}
         best_algo = (max if higher_better else min)(vals, key=vals.get)
         print(f"| {_esc(name)} | **{best_algo}** | {vals[best_algo]:{fmt}} |")
+    print()
+
+
+# ════════════════════════════════════════════════════════════════════════
+#  MULTI-WEEK ADAPTIVE OUTPUT
+# ════════════════════════════════════════════════════════════════════════
+
+
+def print_mw_learning_curve(
+    per_week: dict[str, dict[str, dict[int, list[CLRunStats]]]],
+    algo_names: list[str],
+):
+    # Aggregate across compliance × profiles per (algo, week)
+    agg_wu: dict[str, list[float]] = {a: [] for a in algo_names}
+    agg_cal: dict[str, list[float]] = {a: [] for a in algo_names}
+    agg_sat: dict[str, list[float]] = {a: [] for a in algo_names}
+
+    for w in range(N_MW_WEEKS):
+        for aname in algo_names:
+            stats = [
+                s
+                for cname in per_week
+                for s in per_week[cname][aname][w]
+            ]
+            if stats:
+                agg_wu[aname].append(float(np.mean([s.final_wu for s in stats])))
+                agg_cal[aname].append(float(np.mean([s.cal_mean_abs for s in stats])))
+                agg_sat[aname].append(float(np.mean([s.saturation_pct for s in stats])))
+            else:
+                agg_wu[aname].append(0.0)
+                agg_cal[aname].append(0.0)
+                agg_sat[aname].append(0.0)
+
+    print("### Learning Curve — Utilization (Final WU %)\n")
+    print("| Week | " + " | ".join(algo_names) + " |")
+    print("|------|" + "-------:|" * len(algo_names))
+    for w in range(N_MW_WEEKS):
+        cells = [f"{agg_wu[a][w]:.1f}" for a in algo_names]
+        print(f"| {w + 1} | " + " | ".join(cells) + " |")
+    print()
+
+    print("### Learning Curve — Signal Quality (mean |cal|)\n")
+    print("| Week | " + " | ".join(algo_names) + " |")
+    print("|------|" + "-------:|" * len(algo_names))
+    for w in range(N_MW_WEEKS):
+        cells = [f"{agg_cal[a][w]:.3f}" for a in algo_names]
+        print(f"| {w + 1} | " + " | ".join(cells) + " |")
+    print()
+
+    print("### Learning Curve — Saturation %\n")
+    print("| Week | " + " | ".join(algo_names) + " |")
+    print("|------|" + "-------:|" * len(algo_names))
+    for w in range(N_MW_WEEKS):
+        cells = [f"{agg_sat[a][w]:.1f}" for a in algo_names]
+        print(f"| {w + 1} | " + " | ".join(cells) + " |")
+    print()
+
+    # Signal efficiency: WU gain per unit |cal|
+    active = [a for a in algo_names if a != "No Feedback"]
+    print("### Signal Efficiency (WU gain / mean |cal|)\n")
+    print("_Higher = more utilization per unit of signal annoyance_\n")
+    print("| Week | " + " | ".join(active) + " |")
+    print("|------|" + "-------:|" * len(active))
+    for w in range(N_MW_WEEKS):
+        base_wu = agg_wu["No Feedback"][w] if "No Feedback" in agg_wu else 33.7
+        cells = []
+        for a in active:
+            improvement = max(0, agg_wu[a][w] - base_wu)
+            eff = improvement / max(agg_cal[a][w], 0.001)
+            cells.append(f"{eff:.1f}")
+        print(f"| {w + 1} | " + " | ".join(cells) + " |")
+    print()
+
+
+def print_mw_per_compliance(
+    per_week: dict[str, dict[str, dict[int, list[CLRunStats]]]],
+    algo_names: list[str],
+):
+    for cname in per_week:
+        print(f"### {cname} — WU by Week\n")
+        print("| Week | " + " | ".join(algo_names) + " |")
+        print("|------|" + "-------:|" * len(algo_names))
+        for w in range(N_MW_WEEKS):
+            cells = []
+            for a in algo_names:
+                stats = per_week[cname][a][w]
+                val = float(np.mean([s.final_wu for s in stats])) if stats else 0
+                cells.append(f"{val:.1f}")
+            print(f"| {w + 1} | " + " | ".join(cells) + " |")
+        print()
+
+
+def print_mw_convergence(
+    convergence: dict[str, dict[int, list[tuple[float, float, float]]]],
+    compliance_profiles: dict,
+):
+    print("### Parameter Convergence — Adaptive\n")
+    print("| Compliance | True DZ | Est DZ (wk1) | Est DZ (wk8) "
+          "| Est Gain (wk1) | Est Gain (wk8) | Conf (wk8) |")
+    print("|------------|---------|--------------|-------------- "
+          "|----------------|----------------|------------|")
+
+    for cname in compliance_profiles:
+        true_dz = compliance_profiles[cname]["dead_zone"]
+        wk1 = convergence[cname].get(0, [])
+        wk8 = convergence[cname].get(N_MW_WEEKS - 1, [])
+
+        dz1 = float(np.mean([c[1] for c in wk1])) if wk1 else 0
+        g1 = float(np.mean([c[0] for c in wk1])) if wk1 else 0
+        dz8 = float(np.mean([c[1] for c in wk8])) if wk8 else 0
+        g8 = float(np.mean([c[0] for c in wk8])) if wk8 else 0
+        conf8 = float(np.mean([c[2] for c in wk8])) if wk8 else 0
+
+        print(f"| {cname} | {true_dz:.2f} | {dz1:.2f} | {dz8:.2f} "
+              f"| {g1:.3f} | {g8:.3f} | {conf8:.2f} |")
     print()
