@@ -28,10 +28,21 @@ final class UsageMonitor {
     var isLoading = false
     var lastUpdated: Date?
     var config = AppConfig.load()
+    var displayMode: MenuBarDisplayMode {
+        get { config.menuBarDisplayMode }
+        set {
+            config.menuBarDisplayMode = newValue
+            config.save()
+        }
+    }
     private var napActivity: (any NSObjectProtocol)?
 
     // internal(set) for test injection
     var optimiser: UsageOptimiser?
+
+    func toggleDisplayMode() {
+        displayMode = displayMode == .calibrator ? .dualBar : .calibrator
+    }
 
     func manualPoll() async {
         logger.info("Manual poll triggered")
@@ -80,6 +91,8 @@ final class UsageMonitor {
             weeklyMinsLeft: weeklyMinsLeft,
             calibrator: result.calibrator,
             sessionTarget: result.target,
+            sessionUtilRatio: result.sessionUtilRatio,
+            dailyAllotmentRatio: result.dailyAllotmentRatio,
             timestamp: Date()
         )
         errors.removeAll()
@@ -163,19 +176,31 @@ final class UsageMonitor {
 
 // MARK: - Config
 
+enum MenuBarDisplayMode: String, Codable, Sendable {
+    case calibrator
+    case dualBar
+}
+
 struct AppConfig: Codable, Sendable {
     var activeHoursPerDay: [Double] = [10, 10, 10, 10, 10, 10, 10]
     var pollIntervalSeconds: Int = 300
+    var menuBarDisplayMode: MenuBarDisplayMode = .calibrator
 
-    init(activeHoursPerDay: [Double] = [10, 10, 10, 10, 10, 10, 10], pollIntervalSeconds: Int = 300) {
+    init(
+        activeHoursPerDay: [Double] = [10, 10, 10, 10, 10, 10, 10],
+        pollIntervalSeconds: Int = 300,
+        menuBarDisplayMode: MenuBarDisplayMode = .calibrator
+    ) {
         self.activeHoursPerDay = activeHoursPerDay
         self.pollIntervalSeconds = pollIntervalSeconds
+        self.menuBarDisplayMode = menuBarDisplayMode
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         activeHoursPerDay = try container.decodeIfPresent([Double].self, forKey: .activeHoursPerDay) ?? [10, 10, 10, 10, 10, 10, 10]
         pollIntervalSeconds = try container.decodeIfPresent(Int.self, forKey: .pollIntervalSeconds) ?? 300
+        menuBarDisplayMode = try container.decodeIfPresent(MenuBarDisplayMode.self, forKey: .menuBarDisplayMode) ?? .calibrator
     }
 
     private static let configURL = FileManager.default.homeDirectoryForCurrentUser
@@ -198,7 +223,28 @@ struct AppConfig: Codable, Sendable {
             logger.error("Config file at \(path, privacy: .public) exists but failed to decode (\(data.count, privacy: .public) bytes) — using defaults")
             return AppConfig()
         }
-        logger.info("Config loaded: path=\(path, privacy: .public) activeHoursPerDay=\(config.activeHoursPerDay, privacy: .public) pollIntervalSeconds=\(config.pollIntervalSeconds, privacy: .public)")
+        logger.info("Config loaded: path=\(path, privacy: .public) activeHoursPerDay=\(config.activeHoursPerDay, privacy: .public) pollIntervalSeconds=\(config.pollIntervalSeconds, privacy: .public) displayMode=\(config.menuBarDisplayMode.rawValue, privacy: .public)")
         return config
+    }
+
+    func save() {
+        Self.save(self, to: Self.configURL)
+    }
+
+    static func save(_ config: AppConfig, to url: URL) {
+        let dir = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        guard let data = try? encoder.encode(config) else {
+            logger.error("Failed to encode config for save")
+            return
+        }
+        do {
+            try data.write(to: url, options: .atomic)
+            logger.info("Config saved: displayMode=\(config.menuBarDisplayMode.rawValue, privacy: .public)")
+        } catch {
+            logger.error("Failed to write config: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }

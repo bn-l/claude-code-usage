@@ -39,6 +39,17 @@ struct PopoverView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .disabled(monitor.isLoading)
+                Button {
+                    monitor.toggleDisplayMode()
+                } label: {
+                    Image(systemName: monitor.displayMode == .calibrator
+                        ? "chart.bar.fill"
+                        : "gauge.with.needle")
+                }
+                .buttonStyle(.plain)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .help(monitor.displayMode == .calibrator ? "Switch to dual bar" : "Switch to calibrator")
                 Spacer()
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)
