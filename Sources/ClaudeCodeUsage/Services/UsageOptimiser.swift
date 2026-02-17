@@ -16,8 +16,8 @@ struct OptimiserResult: Sendable {
     let exchangeRate: Double?
     let sessionBudget: Double?
     let isNewSession: Bool
-    let sessionUtilRatio: Double
-    let dailyAllotmentRatio: Double
+    let sessionDeviation: Double
+    let dailyDeviation: Double
 }
 
 @MainActor
@@ -100,13 +100,14 @@ final class UsageOptimiser {
         let budget = sessionBudget(poll)
         let optimal = optimalRate(poll, target: target, budget: budget)
         let velocity = sessionVelocity()
-        let cal = calibrator(deviation: deviation, target: target, poll: poll)
-        let sUtil = sessionUtilRatio(poll)
-        let dAllot = dailyAllotmentRatio(poll)
+        let sError = sessionError(poll, target: target)
+        let cal = calibrator(sessionError: sError, deviation: deviation, poll: poll)
+        let sDev = min(max(sError, -1), 1)
+        let dDev = dailyDeviation(poll)
 
         persist()
 
-        logger.info("Poll recorded: calibrator=\(cal, privacy: .public) target=\(target, privacy: .public) optimalRate=\(optimal, privacy: .public) weeklyDev=\(deviation, privacy: .public) sessionUtil=\(sUtil, privacy: .public) dailyAllot=\(dAllot, privacy: .public) newSession=\(isNewSession, privacy: .public)")
+        logger.info("Poll recorded: calibrator=\(cal, privacy: .public) target=\(target, privacy: .public) optimalRate=\(optimal, privacy: .public) weeklyDev=\(deviation, privacy: .public) sessionDev=\(sDev, privacy: .public) dailyDev=\(dDev, privacy: .public) newSession=\(isNewSession, privacy: .public)")
 
         return OptimiserResult(
             calibrator: cal,
@@ -117,8 +118,8 @@ final class UsageOptimiser {
             exchangeRate: exchangeRate(),
             sessionBudget: budget,
             isNewSession: isNewSession,
-            sessionUtilRatio: sUtil,
-            dailyAllotmentRatio: dAllot
+            sessionDeviation: sDev,
+            dailyDeviation: dDev
         )
     }
 
@@ -240,17 +241,22 @@ final class UsageOptimiser {
         return rate
     }
 
+    // MARK: - Session Error (shared by calibrator + dual bar)
+
+    private func sessionError(_ poll: Poll, target: Double) -> Double {
+        let elapsed = Self.sessionMinutes - poll.sessionRemaining
+        guard elapsed >= 5 else { return 0 }
+        let expectedUsage = target * (elapsed / Self.sessionMinutes)
+        return (poll.sessionUsage - expectedUsage) / max(target, 1)
+    }
+
     // MARK: - Stage 4: Calibrator (PB+Pipe)
 
-    private func calibrator(deviation: Double, target: Double, poll: Poll) -> Double {
+    private func calibrator(sessionError: Double, deviation: Double, poll: Poll) -> Double {
         guard poll.sessionRemaining > 0 else { return 0 }
 
         let elapsed = Self.sessionMinutes - poll.sessionRemaining
         guard elapsed >= 5 else { return 0 }
-
-        // Positional session error
-        let expectedUsage = target * (elapsed / Self.sessionMinutes)
-        let sessionError = (poll.sessionUsage - expectedUsage) / max(target, 1)
 
         // Blend: session error (weighted by time remaining) + weekly deviation
         let sFrac = poll.sessionRemaining / Self.sessionMinutes
@@ -448,21 +454,24 @@ final class UsageOptimiser {
             : boundary
     }
 
-    private func sessionUtilRatio(_ poll: Poll) -> Double {
-        let elapsed = Self.sessionMinutes - poll.sessionRemaining
-        guard elapsed > 0 else { return 0 }
-        let elapsedFrac = elapsed / Self.sessionMinutes
-        let ratio = (poll.sessionUsage / 100) / elapsedFrac
-        return min(max(ratio, 0), 1)
-    }
-
-    private func dailyAllotmentRatio(_ poll: Poll) -> Double {
+    private func dailyDeviation(_ poll: Poll) -> Double {
         guard let snapshot = dailySnapshot else { return 0 }
         let dailyDelta = max(poll.weeklyUsage - snapshot.weeklyUsagePct, 0)
         let daysRemaining = max(snapshot.weeklyMinsLeft / 1440.0, 0.01)
         let dailyAllotment = max(100 - snapshot.weeklyUsagePct, 0) / daysRemaining
         guard dailyAllotment > 0.01 else { return 0 }
-        return min(max(dailyDelta / dailyAllotment, 0), 1)
+
+        // Time-proportional: what fraction of today's active hours have elapsed?
+        let calendar = Calendar.current
+        let boundary = dayBoundary(for: poll.timestamp, calendar: calendar)
+        let dayEnd = boundary.addingTimeInterval(86400)
+        let activeTotal = activeHoursInRange(from: boundary, to: dayEnd)
+        let activeElapsed = activeHoursInRange(from: boundary, to: poll.timestamp)
+        let elapsedFrac = activeTotal > 0 ? activeElapsed / activeTotal : 0
+
+        let expected = dailyAllotment * elapsedFrac
+        let raw = (dailyDelta - expected) / dailyAllotment
+        return min(max(raw, -1), 1)
     }
 
     // MARK: - Persistence & Housekeeping

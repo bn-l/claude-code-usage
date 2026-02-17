@@ -5,47 +5,26 @@ struct MetricsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Calibrator — zero-centered bar
-            VStack(alignment: .leading, spacing: 3) {
-                HStack {
-                    Text("Pace")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(calibratorLabel)
-                        .font(.caption)
-                        .fontWeight(.medium)
-                }
+            DeviationRow(
+                label: "Pace",
+                value: metrics.calibrator,
+                positiveLabel: "Ease off",
+                negativeLabel: "Use more"
+            )
 
-                GeometryReader { geo in
-                    let center = geo.size.width / 2
-                    let maxExtent = center - 4
-                    let magnitude = CGFloat(abs(metrics.calibrator))
-                    let extent = magnitude * maxExtent
+            DeviationRow(
+                label: "Session Pace",
+                value: metrics.sessionDeviation,
+                positiveLabel: "Ahead",
+                negativeLabel: "Behind"
+            )
 
-                    ZStack(alignment: .leading) {
-                        // Track
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.primary.opacity(0.08))
-
-                        // Bar extending from center
-                        if extent > 1 {
-                            let barOffset = metrics.calibrator >= 0 ? center : center - extent
-                            RoundedRectangle(cornerRadius: 2)
-                                .fill(metrics.color)
-                                .frame(width: extent)
-                                .offset(x: barOffset)
-                        }
-
-                        // Center tick
-                        Rectangle()
-                            .fill(Color.primary.opacity(0.25))
-                            .frame(width: 1)
-                            .offset(x: center - 0.5)
-                    }
-                }
-                .frame(height: 8)
-            }
+            DeviationRow(
+                label: "Daily Budget",
+                value: metrics.dailyDeviation,
+                positiveLabel: "Over",
+                negativeLabel: "Under"
+            )
 
             // Session
             GaugeRow(
@@ -63,13 +42,6 @@ struct MetricsView: View {
         }
     }
 
-    private var calibratorLabel: String {
-        let cal = metrics.calibrator
-        if abs(cal) < 0.1 { return "On pace" }
-        if cal > 0 { return "Ease off" }
-        return "Use more"
-    }
-
     private func formatMinutes(_ mins: Double) -> String {
         let h = Int(mins) / 60
         let m = Int(mins) % 60
@@ -83,6 +55,66 @@ struct MetricsView: View {
         let minutes = totalMins % 60
         if days > 0 { return "\(days)d \(hours)h \(minutes)m" }
         return "\(hours)h \(minutes)m"
+    }
+}
+
+struct DeviationRow: View {
+    let label: String
+    let value: Double
+    var positiveLabel = "Over"
+    var negativeLabel = "Under"
+    var neutralLabel = "On pace"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(statusLabel) \(signedPercent)")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .monospacedDigit()
+            }
+
+            GeometryReader { geo in
+                let center = geo.size.width / 2
+                let maxExtent = center - 4
+                let clamped = min(max(value, -1), 1)
+                let extent = CGFloat(abs(clamped)) * maxExtent
+
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.primary.opacity(0.08))
+
+                    if extent > 1 {
+                        let barOffset = clamped >= 0 ? center : center - extent
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(UsageColor.fromCalibrator(clamped))
+                            .frame(width: extent)
+                            .offset(x: barOffset)
+                    }
+
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.35))
+                        .frame(width: 2)
+                        .offset(x: center - 1)
+                }
+            }
+            .frame(height: 8)
+        }
+    }
+
+    private var statusLabel: String {
+        if abs(value) < 0.1 { return neutralLabel }
+        return value > 0 ? positiveLabel : negativeLabel
+    }
+
+    private var signedPercent: String {
+        let pct = Int(round(value * 100))
+        if pct == 0 { return "0%" }
+        return pct > 0 ? "+\(pct)%" : "\(pct)%"
     }
 }
 
