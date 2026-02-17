@@ -91,8 +91,8 @@ final class UsageMonitor {
             weeklyMinsLeft: weeklyMinsLeft,
             calibrator: result.calibrator,
             sessionTarget: result.target,
-            sessionUtilRatio: result.sessionUtilRatio,
-            dailyAllotmentRatio: result.dailyAllotmentRatio,
+            sessionDeviation: result.sessionDeviation,
+            dailyDeviation: result.dailyDeviation,
             timestamp: Date()
         )
         errors.removeAll()

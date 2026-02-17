@@ -18,8 +18,8 @@ struct ClaudeCodeUsageApp: App {
         } label: {
             CalibratorIcon(
                 calibrator: monitor.metrics?.calibrator ?? 0,
-                sessionUtilRatio: monitor.metrics?.sessionUtilRatio ?? 0,
-                dailyAllotmentRatio: monitor.metrics?.dailyAllotmentRatio ?? 0,
+                sessionDeviation: monitor.metrics?.sessionDeviation ?? 0,
+                dailyDeviation: monitor.metrics?.dailyDeviation ?? 0,
                 displayMode: monitor.displayMode,
                 hasError: monitor.hasError
             )
