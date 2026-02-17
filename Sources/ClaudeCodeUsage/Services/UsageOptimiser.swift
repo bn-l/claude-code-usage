@@ -3,6 +3,10 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "Optimiser")
 
+private enum PacingZone {
+    case ok, fast, slow
+}
+
 struct OptimiserResult: Sendable {
     let calibrator: Double
     let target: Double
@@ -34,6 +38,8 @@ final class UsageOptimiser {
     private(set) var sessionStarts: [SessionStart]
     private var detectedWindows: [(start: Double, end: Double)]
     private let persistURL: URL?
+    private var pacingZone: PacingZone = .ok
+    private var prevCalOutput: Double = 0
 
     init(
         data: StoreData = StoreData(),
@@ -73,6 +79,8 @@ final class UsageOptimiser {
                 weeklyUsage: weeklyUsage,
                 weeklyRemaining: weeklyRemaining
             ))
+            pacingZone = .ok
+            prevCalOutput = 0
             logger.info("New session detected at \(timestamp, privacy: .public) weeklyUsage=\(weeklyUsage, privacy: .public)")
         }
 
@@ -85,7 +93,7 @@ final class UsageOptimiser {
         let budget = sessionBudget(poll)
         let optimal = optimalRate(poll, target: target, budget: budget)
         let velocity = sessionVelocity()
-        let cal = calibrator(optimalRate: optimal, currentRate: velocity, poll: poll)
+        let cal = calibrator(deviation: deviation, target: target, poll: poll)
 
         persist()
 
@@ -221,26 +229,64 @@ final class UsageOptimiser {
         return rate
     }
 
-    // MARK: - Stage 4: Calibrator
+    // MARK: - Stage 4: Calibrator (PB+Pipe)
 
-    private func calibrator(optimalRate: Double, currentRate: Double?, poll: Poll) -> Double {
+    private func calibrator(deviation: Double, target: Double, poll: Poll) -> Double {
         guard poll.sessionRemaining > 0 else { return 0 }
 
         let elapsed = Self.sessionMinutes - poll.sessionRemaining
+        guard elapsed >= 5 else { return 0 }
 
-        var velocity = currentRate
-        if velocity == nil {
-            guard elapsed >= 5 else { return 0 }
-            velocity = poll.sessionUsage / max(elapsed, 0.1)
+        // Positional session error
+        let expectedUsage = target * (elapsed / Self.sessionMinutes)
+        let sessionError = (poll.sessionUsage - expectedUsage) / max(target, 1)
+
+        // Blend: session error (weighted by time remaining) + weekly deviation
+        let sFrac = poll.sessionRemaining / Self.sessionMinutes
+        let raw = max(-1.0, min(1.0, sFrac * sessionError + (1 - sFrac) * (-deviation)))
+
+        // Dead zone — suppress small signals
+        let dz: Double
+        if abs(raw) < 0.08 {
+            dz = 0
+        } else {
+            let sign: Double = raw > 0 ? 1 : -1
+            dz = sign * (abs(raw) - 0.08) / 0.92
         }
 
-        let vel = max(velocity!, 0)
-
-        guard optimalRate >= 1e-6 else {
-            return vel > 1e-6 ? 1 : 0
+        // Hysteresis — prevent oscillation at zone boundaries
+        let hz: Double
+        switch pacingZone {
+        case .ok:
+            if dz > 0.15 {
+                pacingZone = .fast
+                hz = dz
+            } else if dz < -0.15 {
+                pacingZone = .slow
+                hz = dz
+            } else {
+                hz = 0
+            }
+        case .fast:
+            if dz < 0.05 {
+                pacingZone = .ok
+                hz = 0
+            } else {
+                hz = dz
+            }
+        case .slow:
+            if dz > -0.05 {
+                pacingZone = .ok
+                hz = 0
+            } else {
+                hz = dz
+            }
         }
 
-        return max(-1, min(1, (vel - optimalRate) / optimalRate))
+        // Smoothing — slew-rate limit for stable display
+        let output = 0.15 * hz + 0.85 * prevCalOutput
+        prevCalOutput = output
+        return max(-1, min(1, output))
     }
 
     // MARK: - Velocity Estimation
