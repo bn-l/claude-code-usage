@@ -109,7 +109,7 @@ struct GaugeRow: View {
                     RoundedRectangle(cornerRadius: 3)
                         .fill(Color.primary.opacity(0.08))
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.secondary.opacity(0.4))
+                        .fill(value >= 100 ? Color.primary : Color.secondary.opacity(0.4))
                         .frame(width: geo.size.width * min(value / 100, 1))
                 }
             }
