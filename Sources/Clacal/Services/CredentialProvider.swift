@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "Credentials")
+private let logger = Logger(subsystem: "com.bml.clacal", category: "Credentials")
 
 enum CredentialProvider {
     private static let serviceName = "Claude Code-credentials"

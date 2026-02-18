@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import OSLog
 
-private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "Monitor")
+private let logger = Logger(subsystem: "com.bml.clacal", category: "Monitor")
 
 struct AppError: Identifiable, Sendable {
     let id = UUID()
@@ -207,7 +207,7 @@ struct AppConfig: Codable, Sendable {
     }
 
     private static let configURL = FileManager.default.homeDirectoryForCurrentUser
-        .appending(path: ".config/claude-code-usage/config.json")
+        .appending(path: ".config/clacal/config.json")
 
     static func load() -> AppConfig {
         load(from: configURL)

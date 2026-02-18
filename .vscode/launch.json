@@ -4,21 +4,21 @@
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:claude-code-usage}",
-            "name": "Debug ClaudeCodeUsage",
-            "target": "ClaudeCodeUsage",
+            "cwd": "${workspaceFolder:clacal}",
+            "name": "Debug Clacal",
+            "target": "Clacal",
             "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug ClaudeCodeUsage"
+            "preLaunchTask": "swift: Build Debug Clacal"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:claude-code-usage}",
-            "name": "Release ClaudeCodeUsage",
-            "target": "ClaudeCodeUsage",
+            "cwd": "${workspaceFolder:clacal}",
+            "name": "Release Clacal",
+            "target": "Clacal",
             "configuration": "release",
-            "preLaunchTask": "swift: Build Release ClaudeCodeUsage"
+            "preLaunchTask": "swift: Build Release Clacal"
         }
     ]
 }

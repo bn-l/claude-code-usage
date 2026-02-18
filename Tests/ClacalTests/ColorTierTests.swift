@@ -1,7 +1,7 @@
 import Testing
 import SwiftUI
 import AppKit
-@testable import ClaudeCodeUsage
+@testable import Clacal
 
 @Suite("UsageColor — Calibrator")
 struct UsageColorTests {

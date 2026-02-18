@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4A1DD9A18ED516DE54E6E268"
-               BuildableName = "ClaudeCodeUsage.app"
-               BlueprintName = "ClaudeCodeUsage"
-               ReferencedContainer = "container:ClaudeCodeUsage.xcodeproj">
+               BlueprintIdentifier = "12D4A230C51F4F5684A90739"
+               BuildableName = "Clacal.app"
+               BlueprintName = "Clacal"
+               ReferencedContainer = "container:Clacal.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
@@ -29,10 +29,10 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "0B6FA402B2BA544EC13A0CDC"
-               BuildableName = "ClaudeCodeUsageTests.xctest"
-               BlueprintName = "ClaudeCodeUsageTests"
-               ReferencedContainer = "container:ClaudeCodeUsage.xcodeproj">
+               BlueprintIdentifier = "8A7F720F71AA23E9C8B61A9D"
+               BuildableName = "ClacalTests.xctest"
+               BlueprintName = "ClacalTests"
+               ReferencedContainer = "container:Clacal.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,10 +46,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4A1DD9A18ED516DE54E6E268"
-            BuildableName = "ClaudeCodeUsage.app"
-            BlueprintName = "ClaudeCodeUsage"
-            ReferencedContainer = "container:ClaudeCodeUsage.xcodeproj">
+            BlueprintIdentifier = "12D4A230C51F4F5684A90739"
+            BuildableName = "Clacal.app"
+            BlueprintName = "Clacal"
+            ReferencedContainer = "container:Clacal.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -58,10 +58,10 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "0B6FA402B2BA544EC13A0CDC"
-               BuildableName = "ClaudeCodeUsageTests.xctest"
-               BlueprintName = "ClaudeCodeUsageTests"
-               ReferencedContainer = "container:ClaudeCodeUsage.xcodeproj">
+               BlueprintIdentifier = "8A7F720F71AA23E9C8B61A9D"
+               BuildableName = "ClacalTests.xctest"
+               BlueprintName = "ClacalTests"
+               ReferencedContainer = "container:Clacal.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -82,10 +82,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4A1DD9A18ED516DE54E6E268"
-            BuildableName = "ClaudeCodeUsage.app"
-            BlueprintName = "ClaudeCodeUsage"
-            ReferencedContainer = "container:ClaudeCodeUsage.xcodeproj">
+            BlueprintIdentifier = "12D4A230C51F4F5684A90739"
+            BuildableName = "Clacal.app"
+            BlueprintName = "Clacal"
+            ReferencedContainer = "container:Clacal.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -101,10 +101,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4A1DD9A18ED516DE54E6E268"
-            BuildableName = "ClaudeCodeUsage.app"
-            BlueprintName = "ClaudeCodeUsage"
-            ReferencedContainer = "container:ClaudeCodeUsage.xcodeproj">
+            BlueprintIdentifier = "12D4A230C51F4F5684A90739"
+            BuildableName = "Clacal.app"
+            BlueprintName = "Clacal"
+            ReferencedContainer = "container:Clacal.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

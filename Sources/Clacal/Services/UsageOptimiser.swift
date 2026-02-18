@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "Optimiser")
+private let logger = Logger(subsystem: "com.bml.clacal", category: "Optimiser")
 
 private enum PacingZone {
     case ok, fast, slow

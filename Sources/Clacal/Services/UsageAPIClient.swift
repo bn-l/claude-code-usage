@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "API")
+private let logger = Logger(subsystem: "com.bml.clacal", category: "API")
 
 enum APIError: LocalizedError {
     case server(status: Int, message: String)

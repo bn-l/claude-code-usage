@@ -3,18 +3,18 @@
 import PackageDescription
 
 let package = Package(
-    name: "ClaudeCodeUsage",
+    name: "Clacal",
     platforms: [.macOS(.v15)],
     dependencies: [],
     targets: [
         .executableTarget(
-            name: "ClaudeCodeUsage",
+            name: "Clacal",
             dependencies: []
         ),
         .testTarget(
-            name: "ClaudeCodeUsageTests",
+            name: "ClacalTests",
             dependencies: [
-                "ClaudeCodeUsage",
+                "Clacal",
             ]
         ),
     ]

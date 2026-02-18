@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import OSLog
 
-private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "CalibratorIcon")
+private let logger = Logger(subsystem: "com.bml.clacal", category: "CalibratorIcon")
 
 struct CalibratorIcon: View {
     let calibrator: Double

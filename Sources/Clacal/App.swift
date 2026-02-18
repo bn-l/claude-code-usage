@@ -2,14 +2,14 @@ import SwiftUI
 import AppKit
 import OSLog
 
-private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "App")
+private let logger = Logger(subsystem: "com.bml.clacal", category: "App")
 
 @main
-struct ClaudeCodeUsageApp: App {
+struct ClacalApp: App {
     @State private var monitor = UsageMonitor()
 
     init() {
-        logger.info("ClaudeCodeUsageApp initializing")
+        logger.info("ClacalApp initializing")
     }
 
     var body: some Scene {

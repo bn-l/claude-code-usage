@@ -9,8 +9,9 @@ struct PopoverView: View {
             if showingErrors {
                 errorListView
             } else {
-                ZStack(alignment: .topTrailing) {
+                ZStack(alignment: .top) {
                     mainContent
+                        .padding(.top, monitor.hasError ? 24 : 0)
                     if monitor.hasError {
                         errorButton
                     }
@@ -92,11 +93,9 @@ struct PopoverView: View {
         Button {
             showingErrors = true
         } label: {
-            Image(systemName: "exclamationmark.triangle.fill")
+            Label("View errors", systemImage: "exclamationmark.triangle.fill")
                 .font(.caption)
                 .foregroundStyle(.orange)
-                .padding(4)
-                .background(.background.opacity(0.8), in: RoundedRectangle(cornerRadius: 4))
         }
         .buttonStyle(.plain)
     }

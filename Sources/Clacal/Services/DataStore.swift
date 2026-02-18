@@ -1,7 +1,7 @@
 import Foundation
 import OSLog
 
-private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "DataStore")
+private let logger = Logger(subsystem: "com.bml.clacal", category: "DataStore")
 
 struct Poll: Codable, Sendable {
     let timestamp: Date
@@ -31,7 +31,7 @@ struct StoreData: Codable, Sendable {
 
 enum DataStore {
     static let defaultURL = FileManager.default.homeDirectoryForCurrentUser
-        .appending(path: ".config/claude-code-usage/usage_data.json")
+        .appending(path: ".config/clacal/usage_data.json")
 
     static func load(from url: URL = defaultURL) -> StoreData {
         guard let raw = try? Data(contentsOf: url) else {
