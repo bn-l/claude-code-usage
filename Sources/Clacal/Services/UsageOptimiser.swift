@@ -482,6 +482,112 @@ final class UsageOptimiser {
         return min(max(raw, -1), 1)
     }
 
+    // MARK: - Stats
+
+    func computeStats() -> UsageStats {
+        let calendar = Calendar.current
+        let now = Date()
+        let todayBound = dayBoundary(for: now, calendar: calendar)
+
+        // Session durations: start → last poll of that session
+        var sessionDurations: [(start: Date, hours: Double)] = []
+        for i in 0..<sessionStarts.count {
+            let start = sessionStarts[i].timestamp
+            let nextStart = i + 1 < sessionStarts.count ? sessionStarts[i + 1].timestamp : nil
+
+            let lastPoll: Poll?
+            if let next = nextStart {
+                lastPoll = polls.last { $0.timestamp >= start && $0.timestamp < next }
+            } else {
+                lastPoll = polls.last { $0.timestamp >= start }
+            }
+
+            guard let end = lastPoll else { continue }
+            let hours = max(end.timestamp.timeIntervalSince(start), 0) / 3600
+            sessionDurations.append((start: start, hours: hours))
+        }
+
+        // Avg session usage — peak usage of each *completed* session
+        var sessionPeaks: [Double] = []
+        let completedCount = max(sessionStarts.count - 1, 0)
+        for i in 0..<completedCount {
+            let start = sessionStarts[i].timestamp
+            let nextStart = sessionStarts[i + 1].timestamp
+            let peak = polls
+                .filter { $0.timestamp >= start && $0.timestamp < nextStart }
+                .map(\.sessionUsage)
+                .max()
+            if let peak { sessionPeaks.append(peak) }
+        }
+        let avgSessionUsage = sessionPeaks.isEmpty
+            ? nil
+            : sessionPeaks.reduce(0, +) / Double(sessionPeaks.count)
+
+        // Hours today
+        let hoursToday = sessionDurations
+            .filter { $0.start >= todayBound }
+            .reduce(0.0) { $0 + $1.hours }
+
+        // Hours — week average per day
+        let hoursWeekAvg: Double?
+        if let latest = polls.last {
+            let weekElapsed = Self.weekMinutes - latest.weeklyRemaining
+            let weekStart = latest.timestamp.addingTimeInterval(-weekElapsed * 60)
+            let daysThisWeek = max(now.timeIntervalSince(weekStart) / 86400, 1)
+            let weekHours = sessionDurations
+                .filter { $0.start >= weekStart }
+                .reduce(0.0) { $0 + $1.hours }
+            hoursWeekAvg = weekHours / daysThisWeek
+        } else {
+            hoursWeekAvg = nil
+        }
+
+        // Hours — all-time average per day
+        let hoursAllTimeAvg: Double?
+        if let first = polls.first {
+            let totalDays = max(now.timeIntervalSince(first.timestamp) / 86400, 1)
+            let totalHours = sessionDurations.reduce(0.0) { $0 + $1.hours }
+            hoursAllTimeAvg = totalHours / totalDays
+        } else {
+            hoursAllTimeAvg = nil
+        }
+
+        // Weekly utilization history — detect resets (weeklyRemaining jumps >60min)
+        var weeklyHistory: [UsageStats.WeeklyEntry] = []
+        for i in 1..<polls.count {
+            let jump = polls[i].weeklyRemaining - polls[i - 1].weeklyRemaining
+            if jump > 60 {
+                let util = polls[i - 1].weeklyUsage
+                let elapsed = Self.weekMinutes - polls[i - 1].weeklyRemaining
+                let weekStart = polls[i - 1].timestamp.addingTimeInterval(-elapsed * 60)
+                weeklyHistory.append(.init(weekStart: weekStart, utilization: util))
+            }
+        }
+
+        // Append current week
+        if let latest = polls.last {
+            let elapsed = Self.weekMinutes - latest.weeklyRemaining
+            let weekStart = latest.timestamp.addingTimeInterval(-elapsed * 60)
+            let isDuplicate = weeklyHistory.last.map {
+                abs(weekStart.timeIntervalSince($0.weekStart)) < 86400
+            } ?? false
+            if !isDuplicate {
+                weeklyHistory.append(.init(weekStart: weekStart, utilization: latest.weeklyUsage))
+            }
+        }
+
+        weeklyHistory.reverse()
+        if weeklyHistory.count > 6 { weeklyHistory = Array(weeklyHistory.prefix(6)) }
+
+        return UsageStats(
+            avgSessionUsage: avgSessionUsage,
+            hoursToday: hoursToday,
+            hoursWeekAvg: hoursWeekAvg,
+            hoursAllTimeAvg: hoursAllTimeAvg,
+            weeklyHistory: weeklyHistory
+        )
+    }
+
     // MARK: - Persistence & Housekeeping
 
     private func dataWeeks() -> Double {

@@ -11,6 +11,7 @@
 		08F4F5A5EFAC8A691D8DF935 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CCD71ED7330EB069039C597 /* App.swift */; };
 		0C52C4C89E74B31855DB288C /* PopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3170DE0E5C75124BF77E887E /* PopoverView.swift */; };
 		2D26892514795D410897FCDB /* ColorTierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2002ACE82DB9689BA1B2407D /* ColorTierTests.swift */; };
+		2E694C12434E8648414E09DE /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91487D437672598E0DB2C66F /* UsageStats.swift */; };
 		39DA78D484F8273FA61D0AAB /* MetricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F810665D1EC0A312806A85D3 /* MetricsView.swift */; };
 		431F1956DF71DEBE3010E141 /* UsageMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4590201816ADAE63E6AC6D7 /* UsageMonitorTests.swift */; };
 		4AE6E4892E200F5E885CAED2 /* CredentialProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56937D2433D794E04FE22322 /* CredentialProvider.swift */; };
@@ -25,6 +26,7 @@
 		B3BF25C42EC5C88FB2F4A5F4 /* UsageAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC246D7B892822224441836 /* UsageAPIClient.swift */; };
 		B44124AED4F6914D19D6F3C8 /* UsageOptimiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0839B9A1FC776CB1D06FFE26 /* UsageOptimiser.swift */; };
 		CB1C6F38840AAEBFDA32D681 /* CalibratorIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BD1824155C21EB0C0DF7680 /* CalibratorIcon.swift */; };
+		E6473C2152F0CDC8CBF27837 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EFD4DF48B7484205F85E225 /* StatsView.swift */; };
 		EBFC9C23C809E0D5CA50F629 /* DataStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7B37B6AC5E94776DB385346 /* DataStoreTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -41,6 +43,7 @@
 /* Begin PBXFileReference section */
 		0839B9A1FC776CB1D06FFE26 /* UsageOptimiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageOptimiser.swift; sourceTree = "<group>"; };
 		1A4CB112E5BDDDDBCEDB8759 /* APIResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponse.swift; sourceTree = "<group>"; };
+		1EFD4DF48B7484205F85E225 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		2002ACE82DB9689BA1B2407D /* ColorTierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorTierTests.swift; sourceTree = "<group>"; };
 		2AC246D7B892822224441836 /* UsageAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageAPIClient.swift; sourceTree = "<group>"; };
 		2EFF56CDAFB0538B585E9A76 /* CalibratorIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibratorIconTests.swift; sourceTree = "<group>"; };
@@ -50,6 +53,7 @@
 		5BD1824155C21EB0C0DF7680 /* CalibratorIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibratorIcon.swift; sourceTree = "<group>"; };
 		7CCD71ED7330EB069039C597 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		7DCEDE9746C552E46734B0B2 /* DataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStore.swift; sourceTree = "<group>"; };
+		91487D437672598E0DB2C66F /* UsageStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStats.swift; sourceTree = "<group>"; };
 		9AA7D2E9645E0BCA038319B2 /* APIResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponseTests.swift; sourceTree = "<group>"; };
 		ACD28A3E8A718E882DA8CE06 /* UsageMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageMonitor.swift; sourceTree = "<group>"; };
 		B5CF09CEE70ED9E062906FC4 /* UsageMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageMetrics.swift; sourceTree = "<group>"; };
@@ -68,6 +72,7 @@
 			children = (
 				1A4CB112E5BDDDDBCEDB8759 /* APIResponse.swift */,
 				B5CF09CEE70ED9E062906FC4 /* UsageMetrics.swift */,
+				91487D437672598E0DB2C66F /* UsageStats.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -78,6 +83,7 @@
 				5BD1824155C21EB0C0DF7680 /* CalibratorIcon.swift */,
 				F810665D1EC0A312806A85D3 /* MetricsView.swift */,
 				3170DE0E5C75124BF77E887E /* PopoverView.swift */,
+				1EFD4DF48B7484205F85E225 /* StatsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -233,10 +239,12 @@
 				50513C63B61FAA3AAEF20FDA /* DataStore.swift in Sources */,
 				39DA78D484F8273FA61D0AAB /* MetricsView.swift in Sources */,
 				0C52C4C89E74B31855DB288C /* PopoverView.swift in Sources */,
+				E6473C2152F0CDC8CBF27837 /* StatsView.swift in Sources */,
 				B3BF25C42EC5C88FB2F4A5F4 /* UsageAPIClient.swift in Sources */,
 				882A9400C0AB729552FDD410 /* UsageMetrics.swift in Sources */,
 				9B768FF3001DF22FC52919E1 /* UsageMonitor.swift in Sources */,
 				B44124AED4F6914D19D6F3C8 /* UsageOptimiser.swift in Sources */,
+				2E694C12434E8648414E09DE /* UsageStats.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

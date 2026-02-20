@@ -3,11 +3,15 @@ import SwiftUI
 struct PopoverView: View {
     let monitor: UsageMonitor
     @State private var showingErrors = false
+    @State private var showingStats = false
+    @State private var stats: UsageStats?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if showingErrors {
                 errorListView
+            } else if showingStats, let stats {
+                StatsView(stats: stats, onDismiss: { showingStats = false })
             } else {
                 ZStack(alignment: .top) {
                     mainContent
@@ -51,6 +55,16 @@ struct PopoverView: View {
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .help(monitor.displayMode == .calibrator ? "Switch to dual bar" : "Switch to calibrator")
+                Button {
+                    stats = monitor.computeStats()
+                    showingStats = true
+                } label: {
+                    Image(systemName: "chart.bar.xaxis")
+                }
+                .buttonStyle(.plain)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .help("View stats")
                 Spacer()
                 Button("Quit") {
                     NSApplication.shared.terminate(nil)
@@ -62,6 +76,10 @@ struct PopoverView: View {
         }
         .padding(16)
         .frame(width: 320)
+        .onDisappear {
+            showingErrors = false
+            showingStats = false
+        }
         .onChange(of: monitor.hasError) { _, hasError in
             if !hasError { showingErrors = false }
         }

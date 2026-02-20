@@ -40,6 +40,10 @@ final class UsageMonitor {
     // internal(set) for test injection
     var optimiser: UsageOptimiser?
 
+    func computeStats() -> UsageStats? {
+        optimiser?.computeStats()
+    }
+
     func toggleDisplayMode() {
         displayMode = displayMode == .calibrator ? .dualBar : .calibrator
     }
