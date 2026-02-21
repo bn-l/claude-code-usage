@@ -147,12 +147,13 @@ final class UsageMonitor {
             if response.seven_day == nil {
                 logger.warning("API response missing seven_day window — defaulting to 0")
             }
+            let sessionMinsLeft = minutesUntil(response.five_hour?.resets_at)
             processResponse(
                 sessionUsagePct: response.five_hour?.utilization ?? 0,
                 weeklyUsagePct: response.seven_day?.utilization ?? 0,
-                sessionMinsLeft: minutesUntil(response.five_hour?.resets_at),
+                sessionMinsLeft: sessionMinsLeft,
                 weeklyMinsLeft: minutesUntil(response.seven_day?.resets_at),
-                isSessionActive: response.five_hour != nil
+                isSessionActive: response.five_hour != nil && sessionMinsLeft > 0
             )
         } catch {
             appendError(error.localizedDescription)

@@ -626,6 +626,49 @@ struct OptimiserScenarioTests {
     }
 }
 
+// MARK: - Expired Session / Fresh Day Edge Cases
+
+@Suite("UsageOptimiser — Expired Session & Fresh Day")
+@MainActor
+struct OptimiserExpiredSessionTests {
+
+    @Test("Session expired (sessionRemaining=0): sessionDeviation is 0")
+    func sessionExpiredZeroDeviation() {
+        let opt = makeTestOptimiser()
+        let result = opt.recordPoll(
+            sessionUsage: 0, sessionRemaining: 0,
+            weeklyUsage: 50, weeklyRemaining: 5000
+        )
+        #expect(result.sessionDeviation == 0)
+    }
+
+    @Test("Daily deviation is 0 when no usage since daily snapshot")
+    func dailyDeviationZeroOnFreshDay() {
+        let now = Date()
+        // Simulate: snapshot captured at weeklyUsage=40, then a new poll arrives
+        // with the same weeklyUsage (no usage since snapshot) → dailyDelta = 0
+        let snapshotTime = now.addingTimeInterval(-3600)
+        let data = makeStoreData(
+            polls: [(snapshotTime, 10, 200, 40, 5000)],
+            sessions: [(snapshotTime.addingTimeInterval(-3600), 35, 5500)]
+        )
+        var storeData = data
+        storeData.dailySnapshot = DailySnapshot(
+            date: snapshotTime,
+            weeklyUsagePct: 40,
+            weeklyMinsLeft: 5000
+        )
+        let opt = makeTestOptimiser(data: storeData)
+
+        let result = opt.recordPoll(
+            sessionUsage: 0, sessionRemaining: 290,
+            weeklyUsage: 40, weeklyRemaining: 4940,
+            timestamp: now
+        )
+        #expect(result.dailyDeviation == 0)
+    }
+}
+
 // MARK: - Session Deviation Boost
 
 @Suite("UsageOptimiser — Session Deviation Boost")
@@ -640,8 +683,8 @@ struct OptimiserSessionDeviationBoostTests {
             sessionUsage: 85, sessionRemaining: 60,
             weeklyUsage: 50, weeklyRemaining: 5040
         )
-        // Raw session error ≈ 0.25, boost at 85% (3.6x) → ~0.9
-        #expect(result.sessionDeviation > 0.5)
+        // Raw session error ≈ 0.25, exp(u⁸) boost at 85% ≈ 1.31x → ~0.33
+        #expect(result.sessionDeviation > 0.25)
     }
 
     @Test("Positive error at low usage has minimal boost")

@@ -186,6 +186,21 @@ struct UsageMonitorPollingTests {
         #expect(monitor.metrics!.sessionTarget <= 100)
     }
 
+    @Test("Session inactive (sessionMinsLeft=0): metrics.isSessionActive is false")
+    func sessionInactiveWhenExpired() {
+        let monitor = makeTestMonitor()
+
+        monitor.processResponse(
+            sessionUsagePct: 0, weeklyUsagePct: 50,
+            sessionMinsLeft: 0, weeklyMinsLeft: 5000,
+            isSessionActive: false
+        )
+
+        #expect(monitor.metrics != nil)
+        #expect(monitor.metrics!.isSessionActive == false)
+        #expect(monitor.metrics!.sessionDeviation == 0)
+    }
+
     @Test("Multiple processResponse calls accumulate polls in optimiser")
     func accumulatesPolls() {
         let monitor = makeTestMonitor()

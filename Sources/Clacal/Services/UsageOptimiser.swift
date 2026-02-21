@@ -250,6 +250,7 @@ final class UsageOptimiser {
     // MARK: - Session Error (shared by calibrator + dual bar)
 
     private func sessionError(_ poll: Poll, target: Double) -> Double {
+        guard poll.sessionRemaining > 0 else { return 0 }
         let elapsed = Self.sessionMinutes - poll.sessionRemaining
         guard elapsed >= 5 else { return 0 }
         let expectedUsage = target * (elapsed / Self.sessionMinutes)
@@ -464,6 +465,7 @@ final class UsageOptimiser {
     private func dailyDeviation(_ poll: Poll) -> Double {
         guard let snapshot = dailySnapshot else { return 0 }
         let dailyDelta = max(poll.weeklyUsage - snapshot.weeklyUsagePct, 0)
+        guard dailyDelta > 0 else { return 0 }
         let daysRemaining = max(snapshot.weeklyMinsLeft / 1440.0, 0.01)
         let dailyAllotment = max(100 - snapshot.weeklyUsagePct, 0) / daysRemaining
         guard dailyAllotment > 0.01 else { return 0 }
